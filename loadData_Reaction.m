@@ -18,22 +18,27 @@
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function [data]=loadData_Reaction(fullfilepaths,basicinput)
-% Inputs: basicinput=basic user input from main GUI; fullfilepaths=cell
-% array of the full paths to user selected files in the main GUI.
+% Inputs:
+% basicinput - basic user input from main GUI.
+% fullfilepaths - cell array of the full paths to user selected files in the
+% main GUI.
+
 % Outputs:
-% Function initialization--------------------------------------------------
+% data - This is the processed data retrieved from the images in each FRAP
+% dataset.
+
+% Initialize a waitbar-----------------------------------------------------
 h=waitbar(0/length(fullfilepaths),['Loading Data (Initializing)']);
-for index1=1:length(fullfilepaths) % Loop through each file one by one
+
+for index1=1:length(fullfilepaths) % Loop through each FRAP dataset
     waitbar((index1-1)/length(fullfilepaths),h,['Loading Data: ', num2str((index1-1)/length(fullfilepaths)*100),'%'])
     
     [pathstr, name, ext] = fileparts(fullfilepaths{index1}); % define the file parts
     
     imgdata=bfopen(fullfilepaths{index1}); % Load the image file using open Bio-Formats
     
-%     metadata=imgdata{1,2}; % Load the meta data information into variable metadata
-    omeMeta=imgdata{1,4};
+    omeMeta=imgdata{1,4}; % Collect the metadata from the FRAP dataset.
     img=imgdata{1,1}{1,1}; % Load the first image plane in the stack for use in user defining ROI
-    % End of Function initialization-------------------------------------------
     
     % ROI initialization-------------------------------------------------------
     [bleachroimask cellroimask adjacentroimask]=ROIinitialization_Reaction(img,basicinput);

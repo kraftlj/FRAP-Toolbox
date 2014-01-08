@@ -16,9 +16,16 @@
 %
 %     You should have received a copy of the GNU General Public License
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+%
+%--------------------------------------------------------------------------
+%--------------------------------------------------------------------------
+%
+% Running the script launches the Main_GUI - the beginning of FRAP-Toolbox.
+%
 function Main_GUI
-
+% The user will be prompted for basic information about the FRAP
+% experiments and the FRAP model to be used in downstream analyses.
+%
 %% Format the GUI
 
 GUIfigureh = figure('Position',[200 200 1000 600],...
@@ -55,7 +62,7 @@ Filelocationbuttonh = uicontrol('Parent',ChooseDirectoriesh,'Style',...
     {@Filelocationbutton_Callback},'FontSize',14);
 
     function Filelocationbutton_Callback(source,eventdata)
-        FRAP.FileLocation=uigetdir; %make the FRAP files with a .frap extension in the future
+        FRAP.FileLocation=uigetdir;
         set(Filelocationh,'String',FRAP.FileLocation);
         list=dir(fullfile(FRAP.FileLocation,'*'));
         set(FRAPfileslistboxh,'String',{list.name});
@@ -145,7 +152,7 @@ Nextbuttonh = uicontrol('Parent',GUIfigureh,'Style','pushbutton',...
         basicinput{1,2}=(get(FRAPmodelh,'Value'));
         basicinput{1,3}=(get(ROIh,'Value'));
         basicinput{1,4}=(get(normalizationh,'Value'));
-        basicinput{1,5}=str2num(get(BGh,'String'));        
+        basicinput{1,5}=str2num(get(BGh,'String'));
         basicinput{1,6}=str2num(get(PBInumh,'String'));
         basicinput{1,7}=[0 0 0];
         basicinput{1,8}=str2num(get(PBNh,'String'));
@@ -160,16 +167,16 @@ Nextbuttonh = uicontrol('Parent',GUIfigureh,'Style','pushbutton',...
             basicinput{1,7}=[str2num(answer{1,1}),str2num(answer{2,1})];
             answer = questdlg('Do you want to calculate MF using an adjacent ROI?','MF calculation','No','Yes','Yes');
             switch answer
-                case 'Yes'  
-                basicinput{1,9} = 1;
+                case 'Yes'
+                    basicinput{1,9} = 1;
                 case 'No'
                     basicinput{1,9}=0;
             end
-            [data]=loadData_Diffusion(fullfilepaths,basicinput);
+            [data]=loadData_Diffusion(fullfilepaths,basicinput); %This performs image processing to obtain processed FRAP curves.
             assignin('base', 'data', data);
             assignin('base', 'basicinput', basicinput);
             assignin('base','FileLocation',FileLocation);
-            Figure_GUI_Diffusion(data,basicinput)
+            Figure_GUI_Diffusion(data,basicinput) % This is the data analysis, visualization, and saving steps.
             
         elseif basicinput{1,2}==2 % If Reaction model
             if basicinput{1,3}==1 % IF circular ROI
@@ -181,17 +188,17 @@ Nextbuttonh = uicontrol('Parent',GUIfigureh,'Style','pushbutton',...
                 basicinput{1,7}=[str2num(answer{1,1}),str2num(answer{2,1})];
                 answer = questdlg('Do you want to calculate MF using an adjacent ROI?','MF calculation','No','Yes','Yes'); %Use Adjacent ROI for corrected Mobile fraction?
                 switch answer
-                    case 'Yes'  
-                    basicinput{1,9} = 1;
+                    case 'Yes'
+                        basicinput{1,9} = 1;
                     case 'No'
-                    basicinput{1,9}=0;
+                        basicinput{1,9}=0;
                 end
             end
-            [data]=loadData_Reaction(fullfilepaths,basicinput);
+            [data]=loadData_Reaction(fullfilepaths,basicinput); %This performs image processing to obtain processed FRAP curves.
             assignin('base', 'data', data);
             assignin('base', 'basicinput', basicinput);
             assignin('base','FileLocation',FileLocation);
-            Figure_GUI_Reaction(data,basicinput)
+            Figure_GUI_Reaction(data,basicinput) % This is the data analysis, visualization, and saving steps.
             
         elseif basicinput{1,2}==3 % If NC transport model
             [data]=loadData_NCtransport2(fullfilepaths,basicinput);
@@ -209,8 +216,8 @@ Nextbuttonh = uicontrol('Parent',GUIfigureh,'Style','pushbutton',...
             basicinput{1,7}=[str2num(answer{1,1}),str2num(answer{2,1})];
             answer = questdlg('Do you want to calculate MF using an adjacent ROI?','MF calculation','No','Yes','Yes');
             switch answer
-                case 'Yes'  
-                basicinput{1,9} = 1;
+                case 'Yes'
+                    basicinput{1,9} = 1;
                 case 'No'
                     basicinput{1,9}=0;
             end
@@ -228,7 +235,7 @@ Nextbuttonh = uicontrol('Parent',GUIfigureh,'Style','pushbutton',...
     'String','Preview','Units','normalized',...
     'Position',[.75,.02,.1,0.08],'FontSize',14,...
     'Callback',{@Previewbutton_Callback});
-function Previewbutton_Callback(source,eventdata)
+    function Previewbutton_Callback(source,eventdata)
         val=get(FRAPfileslistboxh,'Value');
         FileLocation=get(Filelocationh,'String');
         FileNames=get(FRAPfileslistboxh,'String');
@@ -247,8 +254,8 @@ function Previewbutton_Callback(source,eventdata)
             basicinput{1,7}=[str2num(answer{1,1}),str2num(answer{2,1})];
             answer = questdlg('Do you want to calculate MF using an adjacent ROI?','MF calculation','No','Yes','Yes');
             switch answer
-                case 'Yes'  
-                basicinput{1,9} = 1;
+                case 'Yes'
+                    basicinput{1,9} = 1;
                 case 'No'
                     basicinput{1,9}=0;
             end
@@ -272,13 +279,13 @@ function Previewbutton_Callback(source,eventdata)
             basicinput{1,7}=[str2num(answer{1,1}),str2num(answer{2,1})];
             answer = questdlg('Do you want to calculate MF using an adjacent ROI?','MF calculation','No','Yes','Yes');
             switch answer
-                case 'Yes'  
-                basicinput{1,9} = 1;
+                case 'Yes'
+                    basicinput{1,9} = 1;
                 case 'No'
                     basicinput{1,9}=0;
             end
             imgdata=bfopen(fullfilepath);
-            PreviewGUI_FRAP_FRET(imgdata,basicinput);            
+            PreviewGUI_FRAP_FRET(imgdata,basicinput);
             
         end
         

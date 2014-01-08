@@ -18,14 +18,20 @@
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function [normfrap correctMF normadjacent]=NormalizeFRAP_Reaction(frap,cell,basicinput,adjacent)
-% Inputs: frap=mean intensity inside bleach region; cell=mean intensity
-% inside cell region; basicinput=basic user
-% inputs from the main GUI.  Outputs: normfrap=normalized FRAP curve.
+% Inputs:
+% frap - mean intensity inside bleach region.
+% cell - mean intensity inside cell region.
+% basicinput- basic user inputs from the main GUI.
+
+% Outputs:
+% normfrap - normalized FRAP curve.
+% correctMF - A corrected mobile fraction value.
+% normadjacent - normalized intensity for the ROI adjacent to the bleach region.
 
 if basicinput{1,4}==2 % IF normalizing by whole cell intensity
-    normfrap=frap./cell;
-    normfrap=normfrap./mean(normfrap(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1));
-
+    normfrap=frap./cell; % The cell normalization corrects for small movement in z-plane and photofading
+    normfrap=normfrap./mean(normfrap(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1)); %The FRAP data is normalized to 1.
+    
     if basicinput{1,9}==1; % If using an adjacent ROI to calculate a corrected Mobile fraction
         normadjacent=adjacent./cell;
         normadjacent=normadjacent./mean(normadjacent(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1));
@@ -35,15 +41,14 @@ if basicinput{1,4}==2 % IF normalizing by whole cell intensity
         normadjacent=NaN;
     end
     
-else % IF normalizing by the pre-bleach steady-state intensity
-    normfrap=frap./mean(frap(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1));
+else % IF only normalizing by the pre-bleach steady-state intensity
+    normfrap=frap./mean(frap(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1)); %The FRAP data is normalized to 1.
     
     
     if basicinput{1,9}==1; % If using an adjacent ROI to calculate a corrected Mobile fraction
         normadjacent=adjacent./mean(adjacent(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1));
         correctMF=1-(mean(normadjacent(end-basicinput{1,8}*3:end))-mean(normfrap(end-basicinput{1,8}*3:end)));
-        % Move these correct MF calculations to the diffusion model.  All
-        % we need is the normfrap and normadjacent (adjacent after the output of this function).
+        
     else
         correctMF=NaN;
         normadjacent=NaN;
