@@ -18,7 +18,15 @@
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function Figure_GUI_Reaction(data, basicinput)
-% This is a figure GUI for the diffusion model
+% This is a figure GUI for the reaction model
+% Inputs:
+% data - this is the data output from loadData_Reaction.m it contains the
+% processed FRAP curves.
+% basicinput - basic user input from main_GUI.
+
+% Outputs:
+%
+
 %--------------------------------------------------------------------------
 %% Format GUI items
 
@@ -36,12 +44,10 @@ uicontrol('Parent',UserInputsh,'Style','text',...
     'FontSize',14,'BackgroundColor',get(GUIfigureh,'color'));
 
 dat =  {1,  0,  Inf,    'Adjustable';...
-    3,  0,  Inf,    'Adjustable';...
-    10, 0,  Inf,    'Adjustable';
-    1,  0,  2,  'Adjustable';
-    -0.001, -Inf,   0,  'Adjustable'};
+    1,  0,  Inf,    'Adjustable'};
+
 columnname = {'Initial Guess', 'Lower Bound', 'Upper Bound', 'Fixed/Adj'};
-rowname =   {'K', 're', 'D', 'MF', 'kdecay'};
+rowname =   {'Finf', 'k'};
 columnformat = {'numeric', 'numeric', 'numeric', {'Fixed' 'Adjustable'}};
 columneditable =  [true true true true];
 t1 = uitable('Parent',UserInputsh,'Units','normalized','Position',...
@@ -117,13 +123,13 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         % Correcting for unintentional photobleaching----------------------
         switch usrinputs{5,4}
             case 'Adjustable'
-            [decayrate data]=PhotoDecay(data,basicinput,usrinputs,val);
+                [decayrate data]=PhotoDecay(data,basicinput,usrinputs,val);
             case 'Fixed' %If you don't want to correct for photodecay enter 0.
-            for index1=1:length(val)
-                t=data(val(index1)).time-data(val(index1)).time(1)';
-                data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(usrinputs{5,1}*t(1,:));
-                decayrate=usrinputs{5,1};
-            end
+                for index1=1:length(val)
+                    t=data(val(index1)).time-data(val(index1)).time(1)';
+                    data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(usrinputs{5,1}*t(1,:));
+                    decayrate=usrinputs{5,1};
+                end
         end
         assignin('base', 'data', data);
         assignin('base', 'decayrate', decayrate);
@@ -146,16 +152,16 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         for index1=1:length(val)
             line(data(val(index1)).time-data(val(index1)).time(basicinput{1,6}),data(val(index1)).correctfrap,'Line','none','Marker','o','Color',linecolors(index1,:))
             if usrinputs{10,1}==1
-            line(data(val(index1)).t,data(val(index1)).frapfit,'Color','k','LineWidth',2)
+                line(data(val(index1)).t,data(val(index1)).frapfit,'Color','k','LineWidth',2)
             end
         end
         ylabel({'Fluorescence Intensity','(normalized)'})
         grid on
         subplot(3,2,[5])
         if usrinputs{10,1}==1
-        for index1=1:length(val)
-            line(data(val(index1)).t,data(val(index1)).frapres,'Line','none','Marker','o','Color',linecolors(index1,:))
-        end
+            for index1=1:length(val)
+                line(data(val(index1)).t,data(val(index1)).frapres,'Line','none','Marker','o','Color',linecolors(index1,:))
+            end
         end
         ylabel({'Residuals'})
         xlabel({'Time (s)'})
@@ -175,16 +181,16 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         for index1=1:length(val)
             line(data(val(index1)).r,data(val(index1)).pbp,'Line','none','Marker','o','Color',linecolors(index1,:))
             if usrinputs{10,1}==1
-            line(data(val(index1)).rfit,data(val(index1)).pbpfit,'Color','k','LineWidth',2)
+                line(data(val(index1)).rfit,data(val(index1)).pbpfit,'Color','k','LineWidth',2)
             end
         end
         ylabel({'Fluorescence Intensity','(normalized)'})
         grid on
         subplot(3,2,[5])
         if usrinputs{10,1}==1
-        for index1=1:length(val)
-            line(data(val(index1)).rfit,data(val(index1)).pbpres,'Line','none','Marker','o','Color',linecolors(index1,:))
-        end
+            for index1=1:length(val)
+                line(data(val(index1)).rfit,data(val(index1)).pbpres,'Line','none','Marker','o','Color',linecolors(index1,:))
+            end
         end
         ylabel({'Residuals'})
         xlabel({'Radial distance (\mum)'})
@@ -199,14 +205,14 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         %------------------------------------------------------------------
         % upload the fit parameters into table2
         if usrinputs{10,1}==1
-        for index1=1:length(val)
-            temp{val(index1),1}=data(val(index1)).k;
-            temp{val(index1),2}=data(val(index1)).re;
-            temp{val(index1),3}=data(val(index1)).D;
-            temp{val(index1),4}=data(val(index1)).MF;
-            temp{val(index1),5}=data(val(index1)).correctMF;
-            temp{val(index1),6}=data(val(index1)).SS;
-        end
+            for index1=1:length(val)
+                temp{val(index1),1}=data(val(index1)).k;
+                temp{val(index1),2}=data(val(index1)).re;
+                temp{val(index1),3}=data(val(index1)).D;
+                temp{val(index1),4}=data(val(index1)).MF;
+                temp{val(index1),5}=data(val(index1)).correctMF;
+                temp{val(index1),6}=data(val(index1)).SS;
+            end
         end
         temp{length([basicinput(:,1)])+1,1}=avg.k;
         temp{length([basicinput(:,1)])+1,2}=avg.re;
@@ -266,26 +272,26 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         fclose(fid);
         clearvars a str
         
-                m=length(dataout)+1;
-                count=1;
-                for j=1:length(dataout)
-                    a{count}=sprintf([basicinput{j,1},'\t Distance\t',repmat('%f\t',1,length(dataout(j).r)-1),'%f\r\n'],dataout(j).r);
-                    a{count+1}=sprintf([basicinput{j,1},'\t Post-bleach Profile\t',repmat('%f\t',1,length(dataout(j).pbp)-1),'%f\r\n'],dataout(j).pbp);
-                    a{count+2}=sprintf([basicinput{j,1},'\t Profile Fit\t',repmat('%f\t',1,length(dataout(j).pbpfit)-1),'%f\r\n'],dataout(j).pbpfit);
-                    a{count+3}=sprintf([basicinput{j,1},'\t Fit Residuals\t',repmat('%f\t',1,length(dataout(j).pbpres)-1),'%f\r\n'],dataout(j).pbpres);
-                    count=count+4;
-                end
-                j=1;
-                a{count}=sprintf(['Average\t Distance\t',repmat('%f\t',1,length(avg(j).r)-1),'%f\r\n'],avg(j).r);
-                a{count+1}=sprintf(['Average\t Post-bleach Profile\t',repmat('%f\t',1,length(avg(j).pbp)-1),'%f\r\n'],avg(j).pbp);
-                a{count+2}=sprintf(['Average\t Profile Fit\t',repmat('%f\t',1,length(avg(j).pbpfit)-1),'%f\r\n'],avg(j).pbpfit);
-                a{count+3}=sprintf(['Average\t Fit Residuals\t',repmat('%f\t',1,length(avg(j).pbpres)-1),'%f\r\n'],avg(j).pbpres);
+        m=length(dataout)+1;
+        count=1;
+        for j=1:length(dataout)
+            a{count}=sprintf([basicinput{j,1},'\t Distance\t',repmat('%f\t',1,length(dataout(j).r)-1),'%f\r\n'],dataout(j).r);
+            a{count+1}=sprintf([basicinput{j,1},'\t Post-bleach Profile\t',repmat('%f\t',1,length(dataout(j).pbp)-1),'%f\r\n'],dataout(j).pbp);
+            a{count+2}=sprintf([basicinput{j,1},'\t Profile Fit\t',repmat('%f\t',1,length(dataout(j).pbpfit)-1),'%f\r\n'],dataout(j).pbpfit);
+            a{count+3}=sprintf([basicinput{j,1},'\t Fit Residuals\t',repmat('%f\t',1,length(dataout(j).pbpres)-1),'%f\r\n'],dataout(j).pbpres);
+            count=count+4;
+        end
+        j=1;
+        a{count}=sprintf(['Average\t Distance\t',repmat('%f\t',1,length(avg(j).r)-1),'%f\r\n'],avg(j).r);
+        a{count+1}=sprintf(['Average\t Post-bleach Profile\t',repmat('%f\t',1,length(avg(j).pbp)-1),'%f\r\n'],avg(j).pbp);
+        a{count+2}=sprintf(['Average\t Profile Fit\t',repmat('%f\t',1,length(avg(j).pbpfit)-1),'%f\r\n'],avg(j).pbpfit);
+        a{count+3}=sprintf(['Average\t Fit Residuals\t',repmat('%f\t',1,length(avg(j).pbpres)-1),'%f\r\n'],avg(j).pbpres);
         
-                str=[a{:}];
-                fid = fopen(fullfile(FileLocation,[answer{:},'_Diffusion_Postbleach_profiles.txt']),'w');
-                fprintf(fid,str);
-                fclose(fid);
-                clearvars a str
+        str=[a{:}];
+        fid = fopen(fullfile(FileLocation,[answer{:},'_Diffusion_Postbleach_profiles.txt']),'w');
+        fprintf(fid,str);
+        fclose(fid);
+        clearvars a str
     end
 
 % Initialize the GUI.
