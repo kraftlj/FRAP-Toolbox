@@ -80,7 +80,7 @@ uicontrol('Parent',Userinputsh,'Style','text','String',...
     [.025,.91,.8,.08],'HorizontalAlignment','left','BackgroundColor',...
     get(GUIfigureh,'color'),'FontSize',14);
 FRAPmodelh = uicontrol('Parent',Userinputsh,'Style','popupmenu','String',...
-    {'Diffusion','Reaction','NC Transport','FRAP FRET'},'Units','normalized','Position',[.825,.91,.15,.08],'FontSize',14,'HorizontalAlignment','left');
+    {'Diffusion','Reaction 1','NC Transport','FRAP FRET'},'Units','normalized','Position',[.825,.91,.15,.08],'FontSize',14,'HorizontalAlignment','left');
 
 uicontrol('Parent',Userinputsh,'Style','text',...
     'String',{'Select an ROI from the drop down list.........................................'},'Units',...
@@ -186,13 +186,7 @@ Nextbuttonh = uicontrol('Parent',GUIfigureh,'Style','pushbutton',...
                 def = {'256 45','9'};
                 answer = inputdlg(prompt,'ROI Input',num_lines,def);
                 basicinput{1,7}=[str2num(answer{1,1}),str2num(answer{2,1})];
-                answer = questdlg('Do you want to calculate MF using an adjacent ROI?','MF calculation','No','Yes','Yes'); %Use Adjacent ROI for corrected Mobile fraction?
-                switch answer
-                    case 'Yes'
-                        basicinput{1,9} = 1;
-                    case 'No'
-                        basicinput{1,9}=0;
-                end
+                
             end
             [data]=loadData_Reaction(fullfilepaths,basicinput); %This performs image processing to obtain processed FRAP curves.
             assignin('base', 'data', data);

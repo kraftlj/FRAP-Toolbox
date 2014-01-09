@@ -140,7 +140,7 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         %------------------------------------------------------------------
         
         %% Fit with one component reaction model
-        [data avg]=Reaction1Model(data,basicinput,usrinputs,val)      
+        [data avg]=Reaction1Model(data,basicinput,usrinputs,val);      
         assignin('base', 'dataout', data);
         assignin('base', 'avg', avg);
         %------------------------------------------------------------------
