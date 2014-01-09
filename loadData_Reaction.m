@@ -41,15 +41,15 @@ for index1=1:length(fullfilepaths) % Loop through each FRAP dataset
     img=imgdata{1,1}{1,1}; % Load the first image plane in the stack for use in user defining ROI
     
     % ROI initialization-------------------------------------------------------
-    [bleachroimask cellroimask adjacentroimask]=ROIinitialization_Reaction(img,basicinput);
+    [bleachroimask, cellroimask]=ROIinitialization_Reaction(img,basicinput);
     % End of ROI intialization-------------------------------------------------
     
     % Record FRAP curve information--------------------------------------------
-    [data(index1).frap data(index1).time data(index1).cell data(index1).adjacent]=FRAPcurve_Reaction(imgdata,basicinput,omeMeta,bleachroimask,name,cellroimask,adjacentroimask);
+    [data(index1).frap, data(index1).time, data(index1).cell]=FRAPcurve_Reaction(imgdata,basicinput,omeMeta,bleachroimask,cellroimask);
     % End of Record FRAP curve information-------------------------------------
     
     % Normalize the FRAP curve-------------------------------------------------
-    [data(index1).normfrap data(index1).correctMF data(index1).adjacent]=NormalizeFRAP_Reaction(data(index1).frap,data(index1).cell,basicinput,data(index1).adjacent);
+    [data(index1).normfrap]=NormalizeFRAP_Reaction(data(index1).frap,data(index1).cell,basicinput);
     % End of Normalize the FRAP curve------------------------------------------
     
 end

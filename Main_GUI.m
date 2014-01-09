@@ -178,7 +178,7 @@ Nextbuttonh = uicontrol('Parent',GUIfigureh,'Style','pushbutton',...
             assignin('base','FileLocation',FileLocation);
             Figure_GUI_Diffusion(data,basicinput) % This is the data analysis, visualization, and saving steps.
             
-        elseif basicinput{1,2}==2 % If Reaction model
+        elseif basicinput{1,2}==2 % If Reaction 1 model
             if basicinput{1,3}==1 % IF circular ROI
                 prompt = {'Pixel coordinates of ROI center','Pixel radius of ROI'};
                 dlg_title = 'Input';
