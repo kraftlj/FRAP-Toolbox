@@ -1,4 +1,6 @@
 %%% FRAP Toolbox
+% Note I think the usrinputs part for the initial, lower, and upper bounds
+% are screwed up in this file.
 %%
 %     FRAP Toolbox is designed to be a modular software program designed
 %     for the purposes of analyzing Fluorescence Recovery After
