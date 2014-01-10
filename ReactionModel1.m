@@ -17,7 +17,7 @@
 %     You should have received a copy of the GNU General Public License
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-function [data avg]=Reaction1Model(data, basicinput, usrinputs, val)
+function [data, avg]=ReactionModel1(data, basicinput, usrinputs, val)
 % Inputs:
 % data - this is the data output from PhotoDecay_Reaction
 % basicinput - this is basic user input from the Main_GUI

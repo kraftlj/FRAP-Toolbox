@@ -17,8 +17,8 @@
 %     You should have received a copy of the GNU General Public License
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-function Figure_GUI_Reaction(data, basicinput)
-% This is a figure GUI for the reaction model
+function Figure_GUI_Reaction2(data, basicinput)
+% This is a figure GUI for the Reaction 2 model
 % Inputs:
 % data - this is the data output from loadData_Reaction.m it contains the
 % processed FRAP curves.
@@ -44,11 +44,13 @@ uicontrol('Parent',UserInputsh,'Style','text',...
     'FontSize',14,'BackgroundColor',get(GUIfigureh,'color'));
 
 dat =  {1,  0,  Inf,    'Adjustable';... % These are default values for inital, lower, and upper bounds.
-    1,  0,  Inf,    'Adjustable';
+    0.5,  0,  Inf,    'Adjustable';
+    1, 0, Inf, 'Adjustable';
+    1, 0, Inf, 'Adjustable';
     0.001, 0, Inf, 'Adjustable'};
 
 columnname = {'Initial Guess', 'Lower Bound', 'Upper Bound', 'Fixed/Adj'};
-rowname =   {'Finf', 'k', 'decayrate'};
+rowname =   {'Finf', 'C1eq', 'koff1', 'koff2', 'decayrate'};
 columnformat = {'numeric', 'numeric', 'numeric', {'Fixed' 'Adjustable'}};
 columneditable =  [true true true true];
 t1 = uitable('Parent',UserInputsh,'Units','normalized','Position',...
@@ -84,10 +86,10 @@ FitOutputsh = uipanel('Title','Fit Outputs','Units',...
     'normalized','Position',[0.46    0.0169    0.43    0.97],'BackgroundColor',...
     get(GUIfigureh,'color'),'FontSize',14,'FontWeight','bold');
 
-columnname = {'Finf', 'k', 'SS'}; % This is the table where the optimized parameters will output for visual inspection
+columnname = {'Finf', 'C1eq', 'koff1', 'koff2', 'SS'}; % This is the table where the optimized parameters will output for visual inspection
 rowname =   [{basicinput{:,1}},{'Avg.'}];
-columnformat = {'numeric','numeric','numeric'};
-columneditable =  [false false false];
+columnformat = {'numeric','numeric','numeric','numeric','numeric'};
+columneditable =  [false false false false false];
 t3 = uitable('Parent',FitOutputsh,'Units','normalized','Position',...
     [.025,.025,.95,.95], ...
     'ColumnName', columnname,...
@@ -115,22 +117,22 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         val=get(listboxh,'Value'); % This fetches the particular datasets that the user selected to plot
         linecolors=lines(length(val)); % Each frapcurve will be plotted with a different color.
         usrinputs=get(t1,'Data'); % Fetch the initial, lower, and upper bounds.
-        usrinputs(4:5,1:2)=get(t2,'Data'); % Fetch data exclusion parameters.
-        usrinputs{6,1}=get(Avgh,'Value'); % Fetches the choice about fitting the average data
+        usrinputs(6:5,1:2)=get(t2,'Data'); % Fetch data exclusion parameters.
+        usrinputs{8,1}=get(Avgh,'Value'); % Fetches the choice about fitting the average data
         assignin('base', 'usrinputs', usrinputs);
         
         %------------------------------------------------------------------
         %% Correcting for unintentional photobleaching----------------------
         % there should be a conditional to not do this if we normalized by
         % whole cell
-        switch usrinputs{3,4}
+        switch usrinputs{5,4}
             case 'Adjustable'
                 [decayrate data]=PhotoDecay_Reaction(data,basicinput,usrinputs,val); % Correct the photodecay in the FRAP datasets.
             case 'Fixed' %If you don't want to correct for photodecay select 'Fixed' in the initial, lower, and upper bound box, and enter 0 as the initial value.
                 for index1=1:length(val)
                     t=data(val(index1)).time-data(val(index1)).time(1)';
-                    data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(-usrinputs{3,1}*t(1,:));
-                    decayrate=usrinputs{3,1};
+                    data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(-usrinputs{5,1}*t(1,:));
+                    decayrate=usrinputs{5,1};
                 end
         end
         assignin('base', 'data', data);
@@ -140,7 +142,7 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         %------------------------------------------------------------------
         
         %% Fit with one component reaction model
-        [data avg]=ReactionModel1(data,basicinput,usrinputs,val);      
+        [data avg]=ReactionModel2(data,basicinput,usrinputs,val);      
         assignin('base', 'dataout', data);
         assignin('base', 'avg', avg);
         %------------------------------------------------------------------

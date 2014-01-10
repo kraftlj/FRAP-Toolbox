@@ -17,7 +17,7 @@
 %     You should have received a copy of the GNU General Public License
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-function [decayrate, data]=PhotoDecay_Reaction(data,basicinput,usrinputs,val)
+function [decayrate, data]=PhotoDecay_Reaction2(data,basicinput,usrinputs,val)
 % Input:
 % data - output from loadData_Reaction
 % basicinput - Basic user inputs from the Main_GUI
@@ -65,9 +65,9 @@ if size(t,2)>1
 end
 
 fun=@(p,t) p(1)*exp(-p(2)*t); % This is the single exponential fitting function
-p0=[.9,usrinputs{3,1}]; % Define the initial fitting parameters
+p0=[.9,usrinputs{5,1}]; % Define the initial fitting parameters
 % solve the non-linear least squares problem
-p=lsqcurvefit(fun,p0,t(usrinputs{5,1}:usrinputs{5,2},1),f(usrinputs{5,1}:usrinputs{5,2}),[0,usrinputs{3,2}],[2,usrinputs{3,3}],options);
+p=lsqcurvefit(fun,p0,t(usrinputs{7,1}:usrinputs{7,2},1),f(usrinputs{7,1}:usrinputs{7,2}),[0,usrinputs{5,2}],[2,usrinputs{5,3}],options);
 decayrate=p(2);
 for index1=1:length(val)
     data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(-decayrate*t(:,1)'); % Correct the data using the optimized decayrate
