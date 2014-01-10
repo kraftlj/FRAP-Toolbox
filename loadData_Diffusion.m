@@ -18,9 +18,13 @@
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function [data]=loadData_Diffusion(fullfilepaths,basicinput)
-% Inputs: basicinput=basic user input from main GUI; fullfilepaths=cell
-% array of the full paths to user selected files in the main GUI.
+% Inputs: 
+% basicinput - basic user input from main GUI
+% fullfilepaths - cell array of the full paths to user selected files in the main GUI.
+
 % Outputs:
+% data - the normalized FRAP curves and intial conditions
+
 % Function initialization--------------------------------------------------
 h=waitbar(0/length(fullfilepaths),['Loading Data (Initializing)']);
 for index1=1:length(fullfilepaths) % Loop through each file one by one
@@ -29,28 +33,27 @@ for index1=1:length(fullfilepaths) % Loop through each file one by one
     [pathstr, name, ext] = fileparts(fullfilepaths{index1}); % define the file parts
     
     imgdata=bfopen(fullfilepaths{index1}); % Load the image file using open Bio-Formats
-    
-%     metadata=imgdata{1,2}; % Load the meta data information into variable metadata
-    omeMeta=imgdata{1,4};
+
+    omeMeta=imgdata{1,4}; % Load the meta data information from the raw microscope file
     img=imgdata{1,1}{1,1}; % Load the first image plane in the stack for use in user defining ROI
     % End of Function initialization-------------------------------------------
     
     % ROI initialization-------------------------------------------------------
-    [bleachroimask cellroimask adjacentroimask]=ROIinitialization_Diffusion(img,basicinput);
+    [bleachroimask, cellroimask, adjacentroimask]=ROIinitialization_Diffusion(img,basicinput);
     % End of ROI intialization-------------------------------------------------
     
     % Record FRAP curve information--------------------------------------------
-    [data(index1).frap data(index1).time data(index1).cell data(index1).adjacent]=FRAPcurve_Diffusion(imgdata,basicinput,omeMeta,bleachroimask,name,cellroimask,adjacentroimask);
+    [data(index1).frap, data(index1).time, data(index1).cell, data(index1).adjacent]=FRAPcurve_Diffusion(imgdata,basicinput,omeMeta,bleachroimask,cellroimask,adjacentroimask);
     % End of Record FRAP curve information-------------------------------------
     
     % Normalize the FRAP curve-------------------------------------------------
-    [data(index1).normfrap data(index1).correctMF data(index1).adjacent]=NormalizeFRAP_Diffusion(data(index1).frap,data(index1).cell,basicinput,data(index1).adjacent);
+    [data(index1).normfrap, data(index1).correctMF, data(index1).adjacent]=NormalizeFRAP_Diffusion(data(index1).frap,data(index1).cell,basicinput,data(index1).adjacent);
     % End of Normalize the FRAP curve------------------------------------------
     
     % Get post-bleach profile information----------------------------------
-    data(index1).voxelSizeX = omeMeta.getPixelsPhysicalSizeX(0).getValue();
-    [data(index1).r data(index1).pbp]=InitialConditions_Diffusion(basicinput,imgdata);
-    data(index1).r=data(index1).r.*data(index1).voxelSizeX;
+    data(index1).voxelSizeX = omeMeta.getPixelsPhysicalSizeX(0).getValue(); % Read the pixel size from the image metadata.
+    [data(index1).r data(index1).pbp]=InitialConditions_Diffusion(basicinput,imgdata); % Calculate the normalize post-bleach profile.
+    data(index1).r=data(index1).r.*data(index1).voxelSizeX; % convert units from pixels.
     % End post-bleach profile information----------------------------------
 
 end

@@ -17,13 +17,20 @@
 %     You should have received a copy of the GNU General Public License
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-function [frap time cell adjacent]=FRAPcurve_Diffusion(data,basicinput,omeMeta,bleachroimask,name,cellroimask,adjacentroimask)
-% Inputs: data=image planes from image stack; basicinput=basic user
-% inputs from the main GUI; metadata=meta data from image stack;
-% bleachroimask=mask for bleaching; name=name of stack file;
-% region; cellroimask=mask for cell region.  Outputs: frap=mean intensity
-% inside the bleach region; time=time information from the image stack;
-% cell=mean intensity inside the cell region.
+function [frap, time, cell, adjacent]=FRAPcurve_Diffusion(data,basicinput,omeMeta,bleachroimask,cellroimask,adjacentroimask)
+% Inputs: 
+% data - image planes from image stack.
+% basicinput - basic user inputs from the main GUI.
+% metadata - meta data from image stack.
+% bleachroimask - mask for bleaching region.
+% cellroimask - mask for cell region.  
+
+% Outputs: 
+% frap - mean intensity inside the bleach region.
+% time - time information from the image stack.
+% cell - mean intensity inside the cell region.
+% adjacent - mean intensity inside the region adjacent to the bleach
+% region.
 
 for index1=1:length(data{1,1})
     

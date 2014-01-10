@@ -18,9 +18,15 @@
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function [bleachroimask cellroimask adjacentroimask]=ROIinitialization_Diffusion(img,basicinput)
-% Inputs: img=image used for user defining ROIs; basicinput=basic user
-% inputs from the main GUI.  Outputs: bleachroimask=mask for bleaching
-% region; cellroimask=mask for cell region.
+% Inputs: 
+% img - image used for user defining ROIs.
+% basicinput - basic user inputs from the main GUI.  
+
+% Outputs: 
+% bleachroimask - mask for bleaching region.
+% cellroimask - mask for cell region.
+% adjacentroimask - mask for the ROI adjacent to the bleaching region (only
+% if correcting the mobile fraction).
    
     x0=basicinput{1,7}(1); % X coordinates for the center of a circular bleaching ROI
     y0=basicinput{1,7}(2); % Y coordinates for the center of a circular bleaching ROI

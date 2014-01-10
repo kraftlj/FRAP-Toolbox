@@ -19,6 +19,13 @@
 
 function Figure_GUI_Diffusion(data, basicinput)
 % This is a figure GUI for the diffusion model
+% Inputs:
+% data - this is the output from loadData_Diffusion.m
+% basicinput - basic user input from the Main_GUI
+
+% Outputs:
+%
+
 %--------------------------------------------------------------------------
 %% Format GUI items
 
@@ -35,11 +42,11 @@ uicontrol('Parent',UserInputsh,'Style','text',...
     'String','Define the curve fitting parameters:','Units','normalized','Position',[0.025    0.9    .975    0.0741],...
     'FontSize',14,'BackgroundColor',get(GUIfigureh,'color'));
 
-dat =  {1,  0,  Inf,    'Adjustable';...
+dat =  {1,  0,  Inf,    'Adjustable';... % These are the default intial, lower, and upper bounds on the fitting parameters.
     3,  0,  Inf,    'Adjustable';...
     10, 0,  Inf,    'Adjustable';
     1,  0,  2,  'Adjustable';
-    -0.001, -Inf,   0,  'Adjustable'};
+    0.001, 0,   Inf,  'Adjustable'};
 columnname = {'Initial Guess', 'Lower Bound', 'Upper Bound', 'Fixed/Adj'};
 rowname =   {'K', 're', 'D', 'MF', 'kdecay'};
 columnformat = {'numeric', 'numeric', 'numeric', {'Fixed' 'Adjustable'}};
@@ -53,7 +60,7 @@ uicontrol('Parent',UserInputsh,'Style','text',...
     'String','Define data inclusion parameters:','Units','normalized','Position',[0.025    0.45    .975    0.0741],...
     'FontSize',14,'BackgroundColor',get(GUIfigureh,'color'));
 
-dat =  {1,  2000;
+dat =  {1,  2000; % These are the default data exclusion parameters.
     1,  75;
     length(data(1).frap)-50,   length(data(1).frap);
     length(data(1).frap)-.1*length(data(1).frap), length(data(1).frap)};
@@ -78,7 +85,7 @@ FitOutputsh = uipanel('Title','Fit Outputs','Units',...
     'normalized','Position',[0.46    0.0169    0.43    0.97],'BackgroundColor',...
     get(GUIfigureh,'color'),'FontSize',14,'FontWeight','bold');
 
-columnname = {'K', 're', 'D', 'MF', 'MF Correct', 'SS'};
+columnname = {'K', 're', 'D', 'MF', 'MF Correct', 'SS'}; % The optimized parameters get uploaded into this table
 rowname =   [{basicinput{:,1}},{'Avg.'}];
 columnformat = [repmat({'numeric'},1,5),{'numeric'}];
 columneditable =  [false false false false false false];
@@ -103,25 +110,26 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
 %% Define the Callback functions
 
     function data=plotbutton_callback(hObj,event,data)
-        
-        pbpplotsh=figure('Name','Post-bleach profile plots','NumberTitle','off');
-        frapplotsh=figure('Name','FRAP plots','NumberTitle','off');
-        %         cla(resFRAPploth); cla(avgFRAPploth); cla(resavgFRAPploth); cla(pbpplotsh); cla(frapplotsh);
-        val=get(listboxh,'Value');
-        linecolors=lines(length(val));
-        usrinputs=get(t1,'Data');
-        usrinputs(6:9,1:2)=get(t2,'Data');
-        usrinputs{10,1}=get(Avgh,'Value');
+        %%
+        pbpplotsh=figure('Name','Post-bleach profile plots','NumberTitle','off'); % Create figure window for plotting the intial conditions.
+        frapplotsh=figure('Name','FRAP plots','NumberTitle','off'); % Create figure window for plotting the FRAP curves.
+        val=get(listboxh,'Value'); % Fetch the FRAP datasets selected by the user for analysis.
+        linecolors=lines(length(val)); % Plot each dataset with its own unique color.
+        usrinputs=get(t1,'Data'); % Fetch the initial, lower, and upper bounds from table 1.
+        usrinputs(6:9,1:2)=get(t2,'Data'); % Fetch the data exclusion parameters from table 2.
+        usrinputs{10,1}=get(Avgh,'Value'); % The user decided if they want to fit all datasets individually or average them before fitting.
         assignin('base', 'usrinputs', usrinputs);
         %------------------------------------------------------------------
-        % Correcting for unintentional photobleaching----------------------
+        
+        
+        %% Correcting for unintentional photobleaching----------------------
         switch usrinputs{5,4}
-            case 'Adjustable'
-                [decayrate data]=PhotoDecay(data,basicinput,usrinputs,val);
-            case 'Fixed' %If you don't want to correct for photodecay enter 0.
+            case 'Adjustable' % If the user wants to fit the end of the FRAP curve to find the rate of photodecay.
+                [decayrate data]=PhotoDecay(data,basicinput,usrinputs,val); % Correct the photodecay.
+            case 'Fixed' %If you don't want to correct for photodecay fix the photodecay rate and enter 0.
                 for index1=1:length(val)
                     t=data(val(index1)).time-data(val(index1)).time(1)';
-                    data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(usrinputs{5,1}*t(1,:));
+                    data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(-usrinputs{5,1}*t(1,:));
                     decayrate=usrinputs{5,1};
                 end
         end
@@ -130,14 +138,16 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         % End Correcting for unintentional photobleaching------------------
         %------------------------------------------------------------------
         
-        % Fit with diffusion model from Kang et al, Biophys J, 2008.
+        %% Fit with diffusion model from Kang et al, Biophys J, 2008.
         [data avg]=DiffusionModel_2(data,basicinput,usrinputs,val);
         
         
         assignin('base', 'dataout', data);
         assignin('base', 'avg', avg);
         %------------------------------------------------------------------
-        figure(frapplotsh);
+        
+        %% Plot the results for visualization
+        figure(frapplotsh); % Plot the FRAP curves
         subplot(3,2,[1,3])
         for index1=1:length(val)
             line(data(val(index1)).time-data(val(index1)).time(basicinput{1,6}),data(val(index1)).correctfrap,'Line','none','Marker','o','Color',linecolors(index1,:))
@@ -166,7 +176,7 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         grid on
         %------------------------------------------------------------------
         
-        figure(pbpplotsh)
+        figure(pbpplotsh) % Plot the initial conditions
         subplot(3,2,[1,3])
         for index1=1:length(val)
             line(data(val(index1)).r,data(val(index1)).pbp,'Line','none','Marker','o','Color',linecolors(index1,:))
@@ -193,7 +203,9 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         xlabel('Radial distance (\mum)')
         grid on
         %------------------------------------------------------------------
-        % upload the fit parameters into table2
+        
+        
+        %% upload the optimized fit parameters into table 3
         if usrinputs{10,1}==1
             for index1=1:length(val)
                 temp{val(index1),1}=data(val(index1)).k;
@@ -218,6 +230,8 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         
     end
 
+%% Save the FRAP curves, optimized fit parameters, and initial conditions to a tab delimited text file.
+
     function data=savebutton_callback(hObj,event,data)
         answer = inputdlg({'Enter a file description:'},'Save File Descriptor',1,{'Venus_Cytoplasm'});
         temp=evalin('base','temp');
@@ -236,8 +250,7 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         
         m=length(dataout)+1;
         count=1;
-        %if exist dataout.t  % this needs to be inserted to prevent an
-        %error in the fitting of average data.
+        
         for j=1:length(dataout)
             a{count}=sprintf([basicinput{j,1},'\t Time\t',repmat('%f\t',1,length(dataout(j).time)-1),'%f\r\n'],dataout(j).time-dataout(j).time(basicinput{1,6}));
             a{count+1}=sprintf([basicinput{j,1},'\t Raw FRAP\t',repmat('%f\t',1,length(dataout(j).frap)-1),'%f\r\n'],dataout(j).frap);
@@ -284,7 +297,7 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         clearvars a str
     end
 
-% Initialize the GUI.
+%% Initialize the GUI.
 % Change units to normalized so components resize
 % automatically.
 %--------------------------------------------------------------------------

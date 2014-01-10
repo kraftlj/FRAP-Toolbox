@@ -28,18 +28,18 @@ end
 img2=mean(img,3); % Load mean prebleach image into variable img2
 pbi=double(data{1,1}{basicinput{1,6},1}); % Load postbleach image into variable pbi
 normpbi=pbi./img2; % Normalize the postbleach image
-normpbi(normpbi>2)=2;
+normpbi(normpbi>2)=2; % Suppress extreme values to enhance visualization
 width=size(normpbi,2); % Determine the width of postbleach image
 height=size(normpbi,1); % Determine the height of postbleach image
 originX=basicinput{1,7}(1); % Load the X coordinates for the center of the bleaching ROI
 originY=basicinput{1,7}(2); % Load the Y coordinates for the center of the bleaching ROI
 [x,y]=meshgrid(1:width,1:height);
-r=sqrt((x-originX).^2+(y-originY).^2);
-r(pbi==intmax(classname))=NaN;
-r(pbi==0)=NaN;
-r(img2==intmax(classname))=NaN;
-r(img2==0)=NaN;
-A=[r(~isnan(r)),normpbi(~isnan(r))];
+r=sqrt((x-originX).^2+(y-originY).^2); % radial distances from the center of the bleaching ROI
+r(pbi==intmax(classname))=NaN; % Over-saturated pixels are not useful
+r(pbi==0)=NaN; % Under-saturated pixels are not useful
+r(img2==intmax(classname))=NaN; % Over-saturated pixels are not useful
+r(img2==0)=NaN; % Under-saturated pixels are not useful
+A=[r(~isnan(r)),normpbi(~isnan(r))]; % Average intensities at the same radial distances
 [r,~,id2] = unique(A(:,1),'rows');
 pbp = accumarray(id2,A(:,2))./accumarray(id2,1);
 

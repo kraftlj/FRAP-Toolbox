@@ -1,6 +1,4 @@
 %%% FRAP Toolbox
-% Note I think the usrinputs part for the initial, lower, and upper bounds
-% are screwed up in this file.
 %%
 %     FRAP Toolbox is designed to be a modular software program designed
 %     for the purposes of analyzing Fluorescence Recovery After
@@ -19,12 +17,20 @@
 %     You should have received a copy of the GNU General Public License
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-function [decayrate data]=PhotoDecay(data,basicinput,usrinputs,val)
-% Input: data; basic input
-% Output: decayrate; data
+function [decayrate, data]=PhotoDecay(data,basicinput,usrinputs,val)
+% Input: 
+% data - This is the output from loadData_Diffusion.
+% basicinput - this is user defined basic input from the Main_GUI
+
+% Output: 
+% decayrate - this is the photodecay constant.
+% data - This is the input data amended with the FRAP curves corrected for
+% photodecay.
+
 options=optimset('lsqcurvefit');
 options.Display='off';
-% Check to make sure time is not different across data sets.
+
+%% Basic error checking - Check to make sure time is not different across data sets.
 for index1=1:length(val)
 t(:,index1)=data(val(index1)).time-data(val(index1)).time(basicinput{1,6})';
 t(:,index1)=t(:,index1)-t(1,index1);
@@ -47,16 +53,18 @@ if sum(isnan(b))~=length(val)-1
 %     dec
     return
 end
+
+%% Begin the photodecay correction using the averaged FRAP curve.  (the average FRAP curve makes it easier to find a reliable decay constant.)
 f=mean(f,2);
 end
-% for j=1:maximagestacks
-fun=@(p,t) p(1)*exp(p(2)*t);
+
+fun=@(p,t) p(1)*exp(-p(2)*t); % Fit using a single exponential
 % Define the initial fitting parameters
 p0=[.9,usrinputs{5,1}];
 % solve the non-linear least squares problem
 p=lsqcurvefit(fun,p0,t(usrinputs{8,1}:usrinputs{8,2},1),f(usrinputs{8,1}:usrinputs{8,2}),[0,usrinputs{5,2}],[2,usrinputs{5,3}],options);
 decayrate=p(2);
 for index1=1:length(val)
-    data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(decayrate*t(:,1)');
+    data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(-decayrate*t(:,1)');
 end
 end

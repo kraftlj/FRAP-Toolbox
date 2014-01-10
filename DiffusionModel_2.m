@@ -18,6 +18,19 @@
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function [data, avg]=DiffusionModel(data, basicinput, usrinputs, val)
+% Inputs:
+% data - this is the data output from PhotoDecay.m
+% basicinput - these are basic user inputs from the Main_GUI
+% usrinputs - these are basic user inputs from Figure_GUI_Diffusion
+% val - these are the FRAP datasets selected by the user for analysis.
+
+% Outputs:
+% data - this is the input data amended with the optimized parameters and
+% the optimized FRAP curves and initial conditions.
+% avg - this is the averaged frap data, optimized parameters, frap curves,
+% and initial conditions.
+
+%%
 options=optimset('lsqcurvefit');
 options.Display='off';
 if usrinputs{10,1}==2  % Fit the averaged data
@@ -34,8 +47,7 @@ if usrinputs{10,1}==2  % Fit the averaged data
     avg.f=f;
     avg.correctMF=1-(mean(adjacent(usrinputs{9,1}:usrinputs{9,2}))-mean(f(usrinputs{9,1}:usrinputs{9,2})));
     f=f(basicinput{1,6}+usrinputs{7,1}-1:usrinputs{7,2});
-    %     pbp=mean(avgpbp,2);
-    A=[avgr',avgpbp'];
+    A=[avgr',avgpbp']; % Average the data at equivalent radial distances from the center of the bleach ROI.
     [u,~,id2] = unique(A(:,1),'rows');
     B = [u,accumarray(id2,A(:,2))./accumarray(id2,1)];
     r=B(:,1);
@@ -52,6 +64,7 @@ if usrinputs{10,1}==2  % Fit the averaged data
     t=t(basicinput{1,6}+usrinputs{7,1}-1:usrinputs{7,2})-data(1).time(basicinput{1,6});
     avg.t=t;
     
+    %% Find the optimized initial conditions
     switch [usrinputs{1,4},usrinputs{2,4}]
         case 'AdjustableAdjustable'
             pbpfun=@(p,r) exp(-p(1)*exp(-2*r.^2/p(2)^2));
@@ -89,8 +102,8 @@ if usrinputs{10,1}==2  % Fit the averaged data
     avg.pbpfit=pbpfit;
     avg.pbpres=pbp-pbpfit;
     
-    
-    wf=f./(t+sum(f));
+    %% Find the optimized FRAP curves
+    wf=f./(t+sum(f)); % Weight the beginning of the FRAP data more heavily
     switch [usrinputs{3,4},usrinputs{4,4}]
         case 'AdjustableAdjustable'
             frapfun=@(p,t) (KangFRAP(t,re,rn,p(1),k).*p(2)+(1-p(2))*f(1))./(t+sum(f));
@@ -119,7 +132,9 @@ if usrinputs{10,1}==2  % Fit the averaged data
     avg.SS=sum([avg.frapres].^2);
     
     %--------------------------------------------------------------------------
-else % Fit individual data
+    
+    %% Fit the each individual FRAP dataset independently.
+else
     avgpbp=[];
     avgr=[];
     for index1=1:length(val)
@@ -136,7 +151,7 @@ else % Fit individual data
         t=data(val(index1)).time(basicinput{1,6}+usrinputs{7,1}-1:usrinputs{7,2})-data(val(index1)).time(basicinput{1,6});
         f=data(val(index1)).correctfrap(basicinput{1,6}+usrinputs{7,1}-1:usrinputs{7,2});
         data(val(index1)).t=t;
-        
+        %% Find the optimized initial conditions
         switch [usrinputs{1,4},usrinputs{2,4}]
             case 'AdjustableAdjustable'
                 pbpfun=@(p,r) exp(-p(1)*exp(-2*r.^2/p(2)^2));
@@ -174,7 +189,8 @@ else % Fit individual data
         data(val(index1)).pbpfit=pbpfit;
         data(val(index1)).pbpres=pbp-pbpfit;
         
-        wf=f./(t+sum(f));
+        %% Find the optimized FRAP curves
+        wf=f./(t+sum(f)); % Weight the beginning of the FRAP datasets more heavily
         switch [usrinputs{3,4},usrinputs{4,4}]
             case 'AdjustableAdjustable'
                 frapfun=@(p,t) (KangFRAP(t,re,rn,p(1),k).*p(2)+(1-p(2))*f(1))./(t+sum(f));
@@ -202,6 +218,7 @@ else % Fit individual data
         data(val(index1)).frapres=wf-frapfun([data(val(index1)).D,data(val(index1)).MF],t);
         data(val(index1)).SS=sum([data(val(index1)).frapres].^2);
     end
+    % Average the parameters from the individual fits.
     f=mean(avgf,1);
     avg.f=f;
     avg.correctMF=mean([data.correctMF]);
@@ -238,7 +255,19 @@ else % Fit individual data
     avg.SS=sum([avg.frapres].^2);
 end
 
+%% This is the theoretical diffusion FRAP function.
+
     function y=KangFRAP(t,re,rn,D,K)
+        % Inputs:
+        % t - the time information for the FRAP curves
+        % re - the effective radius from the initial conditions
+        % rn - the nominal radius of the user defined bleach region
+        % D - the diffusion coefficient
+        % K - the bleach depth from the initial conditions
+        
+        % Outputs:
+        % y - the theoretical diffusion FRAP curve
+        
         % Refer to Kang et al. 2008 for a discussion of this equation.
         % Partial summation from m=0 to m=10
         m=10;

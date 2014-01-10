@@ -17,33 +17,33 @@
 %     You should have received a copy of the GNU General Public License
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-function [normfrap correctMF normadjacent]=NormalizeFRAP_Diffusion(frap,cell,basicinput,adjacent)
-% Inputs: frap=mean intensity inside bleach region; cell=mean intensity
-% inside cell region; basicinput=basic user
-% inputs from the main GUI.  Outputs: normfrap=normalized FRAP curve.
+function [normfrap, correctMF, normadjacent]=NormalizeFRAP_Diffusion(frap,cell,basicinput,adjacent)
+% Inputs:
+% frap - mean intensity inside bleach region.
+% cell - mean intensity inside cell region.
+% basicinput - basic user inputs from the main GUI.
+
+% Outputs:
+% normfrap - normalized FRAP curve.
+% correctMF - the mobile fraction corrected for loss of fluorescence in the
+% compartment due to the bleach.
+% normadjacent - normalized intensity inside the adjacent ROI
 
 if basicinput{1,4}==2 % IF normalizing by whole cell intensity
-    normfrap=frap./cell;
-    normfrap=normfrap./mean(normfrap(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1));
-
-    if basicinput{1,9}==1; % If using an adjacent ROI to calculate a corrected Mobile fraction
-        normadjacent=adjacent./cell;
-        normadjacent=normadjacent./mean(normadjacent(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1));
-        correctMF=1-(mean(normadjacent(end-basicinput{1,8}*3:end))-mean(normfrap(end-basicinput{1,8}*3:end)));
-    else
-        correctMF=NaN;
-        normadjacent=NaN;
-    end
+    normfrap=frap./cell; % This takes into account loss of fluorescence in the compartment and photodecay.
+    normfrap=normfrap./mean(normfrap(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1)); % This normalizes to the pre-bleach intensity
+    
+    correctMF=NaN; % no reason to correct the MF.
+    normadjacent=NaN;
+    
     
 else % IF normalizing by the pre-bleach steady-state intensity
-    normfrap=frap./mean(frap(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1));
+    normfrap=frap./mean(frap(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1)); % normalize to the pre-bleach intensity.
     
     
     if basicinput{1,9}==1; % If using an adjacent ROI to calculate a corrected Mobile fraction
         normadjacent=adjacent./mean(adjacent(basicinput{1,6}-1-basicinput{1,8}+1:basicinput{1,6}-1));
         correctMF=1-(mean(normadjacent(end-basicinput{1,8}*3:end))-mean(normfrap(end-basicinput{1,8}*3:end)));
-        % Move these correct MF calculations to the diffusion model.  All
-        % we need is the normfrap and normadjacent (adjacent after the output of this function).
     else
         correctMF=NaN;
         normadjacent=NaN;
