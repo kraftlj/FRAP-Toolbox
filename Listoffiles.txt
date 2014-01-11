@@ -1,0 +1,59 @@
+ Volume in drive C has no label.
+ Volume Serial Number is 7A8B-FC71
+
+ Directory of C:\Users\Lewis\FRAP-Toolbox
+
+01/11/2014  08:56 AM    <DIR>          .
+01/11/2014  08:56 AM    <DIR>          ..
+01/06/2014  06:54 PM             2,638 bfCheckJavaPath.m
+01/06/2014  06:54 PM             5,167 bfGetPlane.m
+01/06/2014  06:54 PM             2,704 bfGetReader.m
+01/06/2014  06:54 PM             7,472 bfopen.m
+01/10/2014  07:58 PM            10,836 DiffusionModel_2.m
+01/10/2014  07:58 PM            15,582 Figure_GUI_Diffusion.m
+01/06/2014  06:54 PM            20,060 Figure_GUI_FRAP_FRET.m
+01/10/2014  07:58 PM            11,366 Figure_GUI_NCtransport.m
+01/10/2014  07:58 PM            11,433 Figure_GUI_NCtransport2.m
+01/10/2014  07:58 PM            13,515 Figure_GUI_Reaction.m
+01/10/2014  07:58 PM             2,299 FRAPcurve_Diffusion.m
+01/06/2014  06:54 PM             2,505 FRAPcurve_FRAP_FRET.m
+01/10/2014  07:58 PM             2,027 FRAPcurve_NCtransport.m
+01/10/2014  07:58 PM             1,815 FRAPcurve_NCtransport2.m
+01/10/2014  07:58 PM             2,599 FRAPcurve_Reaction.m
+01/06/2014  06:54 PM            12,136 FRAP_FRET_Model.m
+01/10/2014  07:58 PM             2,171 InitialConditions_Diffusion.m
+01/06/2014  06:54 PM             2,181 InitialConditions_FRAP_FRET.m
+01/10/2014  07:58 PM               329 KangFRAP.m
+01/06/2014  06:54 PM            35,795 LICENSE
+01/11/2014  08:56 AM                 0 Listoffiles.txt
+01/10/2014  07:58 PM             3,304 loadData_Diffusion.m
+01/06/2014  06:54 PM             3,406 loadData_FRAP_FRET.m
+01/10/2014  07:58 PM             2,571 loadData_NCtransport.m
+01/10/2014  07:58 PM             2,760 loadData_NCtransport2.m
+01/10/2014  07:58 PM             2,898 loadData_Reaction.m
+01/09/2014  07:39 PM        16,143,197 loci_tools.jar
+01/10/2014  07:58 PM            14,362 Main_GUI.m
+01/10/2014  07:58 PM             5,483 NCtransportModel.m
+01/10/2014  07:58 PM             5,741 NCtransportModel2.m
+01/10/2014  07:58 PM             2,565 NormalizeFRAP_Diffusion.m
+01/06/2014  06:54 PM             2,797 NormalizeFRAP_FRAP_FRET.m
+01/10/2014  07:58 PM             1,339 NormalizeFRAP_NCtransport2.m
+01/10/2014  07:58 PM             2,709 NormalizeFRAP_Reaction.m
+01/10/2014  07:58 PM             2,450 PhotoDecay.m
+01/10/2014  07:58 PM             2,932 PhotoDecay_FRAP_FRET.m
+01/06/2014  06:54 PM             3,144 PreviewGUI_Diffusion.m
+01/10/2014  07:58 PM             2,309 PreviewGUI_NCtransport.m
+01/06/2014  06:54 PM             3,309 PreviewGUI_Reaction.m
+01/10/2014  07:58 PM             6,144 Reaction1Model.m
+01/10/2014  07:58 PM             3,719 Reaction2Model.m
+01/06/2014  07:56 PM               540 README.md
+01/10/2014  07:58 PM             2,472 ROIinitialization_Diffusion.m
+01/06/2014  06:54 PM             2,472 ROIinitialization_FRAP_FRET.m
+01/10/2014  07:58 PM             1,980 ROIinitialization_NCtransport.m
+01/10/2014  07:58 PM             1,669 ROIinitialization_NCtransport2.m
+01/10/2014  07:58 PM             2,379 ROIinitialization_Reaction.m
+01/10/2014  07:58 PM    <DIR>          Test Data
+01/09/2014  07:39 PM         2,094,848 User guide.docx
+01/06/2014  07:21 PM         1,179,434 User guide.pdf
+              49 File(s)     19,667,563 bytes
+               3 Dir(s)  180,365,725,696 bytes free
