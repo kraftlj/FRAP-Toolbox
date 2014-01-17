@@ -45,10 +45,11 @@ uicontrol('Parent',UserInputsh,'Style','text',...
 
 dat =  {1,  0,  Inf,    'Adjustable';... % These are default values for inital, lower, and upper bounds.
     1,  0,  Inf,    'Adjustable';
+    1, 0, Inf, 'Adjustable';
     0.001, 0, Inf, 'Adjustable'};
 
 columnname = {'Initial Guess', 'Lower Bound', 'Upper Bound', 'Fixed/Adj'};
-rowname =   {'Finf', 'k', 'decayrate'};
+rowname =   {'a', 'b', 'c', 'decayrate'};
 columnformat = {'numeric', 'numeric', 'numeric', {'Fixed' 'Adjustable'}};
 columneditable =  [true true true true];
 t1 = uitable('Parent',UserInputsh,'Units','normalized','Position',...
@@ -84,10 +85,10 @@ FitOutputsh = uipanel('Title','Fit Outputs','Units',...
     'normalized','Position',[0.46    0.0169    0.43    0.97],'BackgroundColor',...
     get(GUIfigureh,'color'),'FontSize',14,'FontWeight','bold');
 
-columnname = {'Finf', 'k', 'SS'}; % This is the table where the optimized parameters will output for visual inspection
+columnname = {'a', 'b', 'c', 'SS'}; % This is the table where the optimized parameters will output for visual inspection
 rowname =   [{basicinput{:,1}},{'Avg.'}];
-columnformat = {'numeric','numeric','numeric'};
-columneditable =  [false false false];
+columnformat = {'numeric','numeric','numeric' 'numeric'};
+columneditable =  [false false false false];
 t3 = uitable('Parent',FitOutputsh,'Units','normalized','Position',...
     [.025,.025,.95,.95], ...
     'ColumnName', columnname,...
@@ -115,22 +116,22 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         val=get(listboxh,'Value'); % This fetches the particular datasets that the user selected to plot
         linecolors=lines(length(val)); % Each frapcurve will be plotted with a different color.
         usrinputs=get(t1,'Data'); % Fetch the initial, lower, and upper bounds.
-        usrinputs(4:5,1:2)=get(t2,'Data'); % Fetch data exclusion parameters.
-        usrinputs{6,1}=get(Avgh,'Value'); % Fetches the choice about fitting the average data
+        usrinputs(5:6,1:2)=get(t2,'Data'); % Fetch data exclusion parameters.
+        usrinputs{7,1}=get(Avgh,'Value'); % Fetches the choice about fitting the average data
         assignin('base', 'usrinputs', usrinputs);
         
         %------------------------------------------------------------------
         %% Correcting for unintentional photobleaching----------------------
         % there should be a conditional to not do this if we normalized by
         % whole cell
-        switch usrinputs{3,4}
+        switch usrinputs{4,4}
             case 'Adjustable'
-                [decayrate data]=PhotoDecay_Reaction(data,basicinput,usrinputs,val); % Correct the photodecay in the FRAP datasets.
+                [decayrate, data]=PhotoDecay_Reaction(data,basicinput,usrinputs,val); % Correct the photodecay in the FRAP datasets.
             case 'Fixed' %If you don't want to correct for photodecay select 'Fixed' in the initial, lower, and upper bound box, and enter 0 as the initial value.
                 for index1=1:length(val)
                     t=data(val(index1)).time-data(val(index1)).time(1)';
-                    data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(-usrinputs{3,1}*t(1,:));
-                    decayrate=usrinputs{3,1};
+                    data(val(index1)).correctfrap=data(val(index1)).normfrap./exp(-usrinputs{4,1}*t(1,:));
+                    decayrate=usrinputs{4,1};
                 end
         end
         assignin('base', 'data', data);
@@ -140,7 +141,7 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         %------------------------------------------------------------------
         
         %% Fit with one component reaction model
-        [data avg]=ReactionModel1(data,basicinput,usrinputs,val);      
+        [data, avg]=ReactionModel1(data,basicinput,usrinputs,val);      
         assignin('base', 'dataout', data);
         assignin('base', 'avg', avg);
         %------------------------------------------------------------------
@@ -151,14 +152,14 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         subplot(3,2,[1,3])
         for index1=1:length(val)
             line(data(val(index1)).time-data(val(index1)).time(basicinput{1,6}),data(val(index1)).correctfrap,'Line','none','Marker','o','Color',linecolors(index1,:))
-            if usrinputs{6,1}==1
+            if usrinputs{7,1}==1
                 line(data(val(index1)).t,data(val(index1)).frapfit,'Color','k','LineWidth',2)
             end
         end
         ylabel({'Fluorescence Intensity','(normalized)'})
         grid on
         subplot(3,2,[5])
-        if usrinputs{6,1}==1
+        if usrinputs{7,1}==1
             for index1=1:length(val)
                 line(data(val(index1)).t,data(val(index1)).frapres,'Line','none','Marker','o','Color',linecolors(index1,:))
             end
@@ -179,16 +180,18 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         %------------------------------------------------------------------
         
         %% upload the fit parameters into t3 (table 3)
-        if usrinputs{6,1}==1
+        if usrinputs{7,1}==1
             for index1=1:length(val)
-                temp{val(index1),1}=data(val(index1)).Finf;
-                temp{val(index1),2}=data(val(index1)).k;
-                temp{val(index1),3}=data(val(index1)).SS;
+                temp{val(index1),1}=data(val(index1)).a;
+                temp{val(index1),2}=data(val(index1)).b;
+                temp{val(index1),3}=data(val(index1)).c;
+                temp{val(index1),4}=data(val(index1)).SS;
             end
         end
-        temp{length([basicinput(:,1)])+1,1}=avg.Finf;
-        temp{length([basicinput(:,1)])+1,2}=avg.k;
-        temp{length([basicinput(:,1)])+1,3}=avg.SS;
+        temp{length([basicinput(:,1)])+1,1}=avg.a;
+        temp{length([basicinput(:,1)])+1,2}=avg.b;
+        temp{length([basicinput(:,1)])+1,3}=avg.c;
+        temp{length([basicinput(:,1)])+1,4}=avg.SS;
         
         set(t3,'Data',temp);
         assignin('base','temp',temp);
@@ -206,10 +209,10 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         assignin('base','rowname',rowname);
         FileLocation=evalin('base','FileLocation');
         savedata=[rowname, temp]';
-        header={'FileNames','Finf','k','SS'};
+        header={'FileNames','a','b','c','SS'};
         fid = fopen(fullfile(FileLocation,[answer{:},'_Reaction_Fit_Parameters.txt']),'w');
-        fprintf(fid, '%s\t %s\t %s\t %s\r\n', header{:});
-        fprintf(fid, '%s\t %g\t %g\t %g\r\n', savedata{:});
+        fprintf(fid, '%s\t %s\t %s\t %s\t %s\r\n', header{:});
+        fprintf(fid, '%s\t %g\t %g\t %g\t %g\r\n', savedata{:});
         fclose(fid);
         
         dataout=evalin('base','dataout');
