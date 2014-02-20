@@ -60,8 +60,8 @@ uicontrol('Parent',UserInputsh,'Style','text',...
     'String','Define data inclusion parameters:','Units','normalized','Position',[0.025    0.45    .975    0.0741],...
     'FontSize',14,'BackgroundColor',get(GUIfigureh,'color'));
 
-dat =  {1,  2000; % These are the default data exclusion parameters.
-    1,  75;
+dat =  {1,  length(data(1).r); % These are the default data exclusion parameters.
+    1,  length(data(1).frap);
     length(data(1).frap)-50,   length(data(1).frap);
     length(data(1).frap)-.1*length(data(1).frap), length(data(1).frap)};
 columnname = {'First data point','Last data point'};
@@ -133,6 +133,13 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
                     decayrate=usrinputs{5,1};
                 end
         end
+        if basicinput{1,4}==2
+            for index1=1:length(val)
+                data(val(index1)).correctfrap=data(val(index1)).normfrap;
+                decayrate=0;
+            end
+        end
+        
         assignin('base', 'data', data);
         assignin('base', 'decayrate', decayrate);
         % End Correcting for unintentional photobleaching------------------

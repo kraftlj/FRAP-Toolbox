@@ -36,8 +36,8 @@ if usrinputs{9,1}==2
     f=f(basicinput{1,6}+usrinputs{7,1}-1:usrinputs{7,2});
     t=data(1).time;
     avg.time=t;
-    t=t(basicinput{1,6}+usrinputs{7,1}-1:usrinputs{7,2})-data(1).time(basicinput{1,6}+usrinputs{7,1}-1);
-    avg.t=t+t(usrinputs{7,1});
+    t=t(basicinput{1,6}+usrinputs{7,1}-1:usrinputs{7,2})-data(1).time(basicinput{1,6}+usrinputs{7,1}-1); % This subtracts the time such that you get t(1)=0
+    avg.t=t+t(usrinputs{7,1}); % This adds time back so that plotting avg.t vs. avg.frapfit matches up with the plot of t-t(basicinput{1,6} vs. avg.f
     %----------------------------------------------------------------------
     
     wf=f./(t+sum(f)); % Weight the beginning of the FRAP curve more

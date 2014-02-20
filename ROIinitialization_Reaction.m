@@ -34,7 +34,7 @@ if basicinput{1,3}==1 % If circular ROI
     [columnsInImage rowsInImage] = meshgrid(1:size(img,2), 1:size(img,1)); % Generate a meshgrid for the mask in the next steps
     bleachroimask = (rowsInImage - y0).^2 + (columnsInImage - x0).^2 <= R0.^2; % Create a mask using the circular coordinates
 else % If using a user defined bleach region
-    h=msgbox({'Define the cell region using the mouse.  Right click and press create mask when finished.'});
+    h=msgbox({'Define the bleach region using the mouse.  Right click and press create mask when finished.'});
     movegui(h,'northwest');
     figure
     bleachroimask = roipoly(imadjust(img,stretchlim(img,[0,1]))); % Create a mask using the user defined ROI

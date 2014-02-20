@@ -134,13 +134,6 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
                     decayrate=usrinputs{4,1};
                 end
         end
-        
-        if basicinput{1,4}==2
-            for index1=1:length(val)
-                data(val(index1)).correctfrap=data(val(index1)).normfrap;
-                decayrate=0;
-            end
-        end
         assignin('base', 'data', data);
         assignin('base', 'decayrate', decayrate);
         % End Correcting for unintentional photobleaching------------------
@@ -148,7 +141,7 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         %------------------------------------------------------------------
         
         %% Fit with one component reaction model
-        [data, avg]=ReactionModel1(data,basicinput,usrinputs,val);
+        [data, avg]=ReactionModel1(data,basicinput,usrinputs,val);      
         assignin('base', 'dataout', data);
         assignin('base', 'avg', avg);
         %------------------------------------------------------------------
@@ -251,7 +244,7 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         fclose(fid);
         clearvars a str
         
-        
+ 
     end
 
 % Initialize the GUI.
