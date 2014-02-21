@@ -126,6 +126,12 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         %% Correcting for unintentional photobleaching----------------------
         % there should be a conditional to not do this if we normalized by
         % whole cell
+        if basicinput{1,4}==2
+            for index1=1:length(val)
+                data(val(index1)).correctfrap=data(val(index1)).normfrap;
+                decayrate=0;
+            end
+        else
         switch usrinputs{6,4}
             case 'Adjustable'
                 [decayrate data]=PhotoDecay_Reaction2(data,basicinput,usrinputs,val); % Correct the photodecay in the FRAP datasets.
@@ -136,12 +142,8 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
                     decayrate=usrinputs{6,1};
                 end
         end
-        if basicinput{1,4}==2
-            for index1=1:length(val)
-                data(val(index1)).correctfrap=data(val(index1)).normfrap;
-                decayrate=0;
-            end
         end
+        
         
         assignin('base', 'data', data);
         assignin('base', 'decayrate', decayrate);

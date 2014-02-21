@@ -126,6 +126,12 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
         
         
         %% Correcting for unintentional photobleaching----------------------
+        if basicinput{1,4}==2
+            for index1=1:length(val)
+                data(val(index1)).correctfrap=data(val(index1)).normfrap;
+                decayrate=0;
+            end
+        else
         switch usrinputs{5,4}
             case 'Adjustable' % If the user wants to fit the end of the FRAP curve to find the rate of photodecay.
                 [decayrate data]=PhotoDecay(data,basicinput,usrinputs,val); % Correct the photodecay.
@@ -136,12 +142,8 @@ savebuttonh = uicontrol(GUIfigureh,'Style','pushbutton','Units','normalized',...
                     decayrate=usrinputs{5,1};
                 end
         end
-        if basicinput{1,4}==2
-            for index1=1:length(val)
-                data(val(index1)).correctfrap=data(val(index1)).normfrap;
-                decayrate=0;
-            end
         end
+        
         
         assignin('base', 'data', data);
         assignin('base', 'decayrate', decayrate);
