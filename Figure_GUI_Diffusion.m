@@ -60,7 +60,10 @@ uicontrol('Parent',UserInputsh,'Style','text',...
     'String','Define data inclusion parameters:','Units','normalized','Position',[0.025    0.45    .975    0.0741],...
     'FontSize',14,'BackgroundColor',get(GUIfigureh,'color'));
 
-dat =  {1,  length(data(1).r); % These are the default data exclusion parameters.
+for j=1:length(data);
+    rSize(j)=length(data(j).r);
+end
+dat =  {1,  min(rSize); % These are the default data exclusion parameters.
     1,  length(data(1).frap);
     length(data(1).frap)-50,   length(data(1).frap);
     length(data(1).frap)-.1*length(data(1).frap), length(data(1).frap)};
