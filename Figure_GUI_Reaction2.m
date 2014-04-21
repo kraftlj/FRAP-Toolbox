@@ -45,9 +45,9 @@ uicontrol('Parent',UserInputsh,'Style','text',...
 
 dat =  {1,  0,  Inf,    'Adjustable';... % These are default values for inital, lower, and upper bounds.
     0.5,  0,  Inf,    'Adjustable';
-    1, 0, Inf, 'Adjustable';
+    0.05, 0, Inf, 'Adjustable';
     0.5, 0, Inf, 'Adjustable';
-    20, 0, Inf, 'Adjustable';
+    0.0005, 0, Inf, 'Adjustable';
     0.001, 0, Inf, 'Adjustable'};
 
 columnname = {'Initial Guess', 'Lower Bound', 'Upper Bound', 'Fixed/Adj'};

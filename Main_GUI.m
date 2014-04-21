@@ -62,6 +62,7 @@ Filelocationbuttonh = uicontrol('Parent',ChooseDirectoriesh,'Style',...
     {@Filelocationbutton_Callback},'FontSize',14);
 
     function Filelocationbutton_Callback(source,eventdata)
+        set(FRAPfileslistboxh,'Value',[]);
         FRAP.FileLocation=uigetdir;
         set(Filelocationh,'String',FRAP.FileLocation);
         list=dir(fullfile(FRAP.FileLocation,'*'));
@@ -173,7 +174,21 @@ Nextbuttonh = uicontrol('Parent',GUIfigureh,'Style','pushbutton',...
                 case 'No'
                     basicinput{1,9}=0;
             end
+        try                       
             [data]=loadData_Diffusion(fullfilepaths,basicinput); %This performs image processing to obtain processed FRAP curves.
+        catch err
+        
+        if strcmp(err.identifier,'MATLAB:Java:GenericException')
+            msg = ['The filetype you selected is not recognized by Bioformats.'];
+            error('MATLAB:OpenFile:NoImage',msg)
+            return
+            
+        else
+            rethrow(err)
+            
+        end
+        end
+        
             assignin('base', 'data', data);
             assignin('base', 'basicinput', basicinput);
             assignin('base','FileLocation',FileLocation);

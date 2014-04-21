@@ -32,8 +32,23 @@ for index1=1:length(fullfilepaths) % Loop through each file one by one
     
     [pathstr, name, ext] = fileparts(fullfilepaths{index1}); % define the file parts
     
-    imgdata=bfopen(fullfilepaths{index1}); % Load the image file using open Bio-Formats
-
+    try
+        imgdata=bfopen(fullfilepaths{index1}); % Load the image file using open Bio-Formats
+    catch err
+        
+        if strcmp(err.identifier,'MATLAB:Java:GenericException')
+            msg = ['The filetype you selected is not recognized by Bioformats.'];
+            error('MATLAB:OpenFile:NoImage',msg)
+            return
+            
+        else
+            rethrow(err)
+            
+        end
+    end   
+        
+  
+    
     omeMeta=imgdata{1,4}; % Load the meta data information from the raw microscope file
     img=imgdata{1,1}{1,1}; % Load the first image plane in the stack for use in user defining ROI
     % End of Function initialization-------------------------------------------
