@@ -18,7 +18,7 @@
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function [data]=loadData_Diffusion(fullfilepaths,basicinput)
-% Inputs: 
+% Inputs:
 % basicinput - basic user input from main GUI
 % fullfilepaths - cell array of the full paths to user selected files in the main GUI.
 
@@ -34,20 +34,10 @@ for index1=1:length(fullfilepaths) % Loop through each file one by one
     
     try
         imgdata=bfopen(fullfilepaths{index1}); % Load the image file using open Bio-Formats
-    catch err
-        
-        if strcmp(err.identifier,'MATLAB:Java:GenericException')
-            msg = ['The filetype you selected is not recognized by Bioformats.'];
-            error('MATLAB:OpenFile:NoImage',msg)
-            return
-            
-        else
-            rethrow(err)
-            
-        end
-    end   
-        
-  
+    catch errObj
+        errordlg('Bioformats does not support the filetype you selected.  Please select a microscopy image.');
+        close(h);
+    end
     
     omeMeta=imgdata{1,4}; % Load the meta data information from the raw microscope file
     img=imgdata{1,1}{1,1}; % Load the first image plane in the stack for use in user defining ROI
@@ -70,7 +60,7 @@ for index1=1:length(fullfilepaths) % Loop through each file one by one
     [data(index1).r data(index1).pbp]=InitialConditions_Diffusion(basicinput,imgdata); % Calculate the normalize post-bleach profile.
     data(index1).r=data(index1).r.*data(index1).voxelSizeX; % convert units from pixels.
     % End post-bleach profile information----------------------------------
-
+    
 end
 close(h)
 end

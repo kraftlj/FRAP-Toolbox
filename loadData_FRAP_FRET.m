@@ -28,9 +28,14 @@ for index1=1:length(fullfilepaths) % Loop through each file one by one
     
     [pathstr, name, ext] = fileparts(fullfilepaths{index1}); % define the file parts
     
-    imgdata=bfopen(fullfilepaths{index1}); % Load the image file using open Bio-Formats
+    try
+        imgdata=bfopen(fullfilepaths{index1}); % Load the image file using open Bio-Formats
+    catch errObj
+        errordlg('Bioformats does not support the filetype you selected.  Please select a microscopy image.');
+        close(h);
+    end
     
-%     metadata=imgdata{1,2}; % Load the meta data information into variable metadata
+    %     metadata=imgdata{1,2}; % Load the meta data information into variable metadata
     omeMeta=imgdata{1,4};
     img=imgdata{1,1}{1,1}; % Load the first image plane in the stack for use in user defining ROI
     % End of Function initialization-------------------------------------------
@@ -52,7 +57,7 @@ for index1=1:length(fullfilepaths) % Loop through each file one by one
     [data(index1).r data(index1).pbp]=InitialConditions_FRAP_FRET(basicinput,imgdata);
     data(index1).r=data(index1).r.*data(index1).voxelSizeX;
     % End post-bleach profile information----------------------------------
-
+    
 end
 close(h)
 end
