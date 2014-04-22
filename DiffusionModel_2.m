@@ -142,7 +142,11 @@ else
         avgadjacent(index1,:)=data(val(index1)).adjacent;
         avgpbp(end+1:end+length(data(val(index1)).pbp))=data(val(index1)).pbp;
         avgr(end+1:end+length(data(val(index1)).r))=data(val(index1)).r;
-        data(val(index1)).correctMF=1-(mean(data(val(index1)).adjacent(usrinputs{9,1}:usrinputs{9,2}))-mean(data(val(index1)).normfrap(usrinputs{9,1}:usrinputs{9,2})));
+        if basicinput{1,9}==1
+            data(val(index1)).correctMF=1-(mean(data(val(index1)).adjacent(usrinputs{9,1}:usrinputs{9,2}))-mean(data(val(index1)).normfrap(usrinputs{9,1}:usrinputs{9,2})));
+        else
+            data(val(index1)).correctMF=nan;
+        end
         voxelSizeX=data.voxelSizeX;
         rn=basicinput{1,7}(3).*voxelSizeX;
         r=data(val(index1)).r(usrinputs{6,1}:usrinputs{6,2});
