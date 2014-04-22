@@ -1,3 +1,4 @@
+
 function r = bfGetReader(varargin)
 % BFGETREADER return a reader for a microscopy image using Bio-Formats
 % 

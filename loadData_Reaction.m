@@ -35,7 +35,12 @@ for index1=1:length(fullfilepaths) % Loop through each FRAP dataset
     
     [pathstr, name, ext] = fileparts(fullfilepaths{index1}); % define the file parts
     
-    imgdata=bfopen(fullfilepaths{index1}); % Load the image file using open Bio-Formats
+    try
+        imgdata=bfopen(fullfilepaths{index1}); % Load the image file using open Bio-Formats
+    catch errObj
+        errordlg('Bioformats does not support the filetype you selected.  Please select a microscopy image.');
+        close(h);
+    end
     
     omeMeta=imgdata{1,4}; % Collect the metadata from the FRAP dataset.
     img=imgdata{1,1}{1,1}; % Load the first image plane in the stack for use in user defining ROI
