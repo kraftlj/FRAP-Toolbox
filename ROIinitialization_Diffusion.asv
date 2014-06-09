@@ -44,7 +44,6 @@ if basicinput{1,4}==2 % IF normalizing by whole cell intensity
     h2=gcf;
     close(h);
     close(h2);
-    adjacentroimask = NaN;
 else
     
     if basicinput{1,9}==1; % IF using an adjacent ROI to calculate a corrected mobile fraction

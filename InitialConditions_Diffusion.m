@@ -22,7 +22,7 @@ function [r, pbp]=InitialConditions_Diffusion(basicinput,data)
 % data from the current stack
 classname=class(data{1,1}{1,1});
 for index1=1:basicinput{1,8} % Load prebleach images into variable img
-    index2=basicinput{1,6}-1-basicinput{1,8}:basicinput{1,6}-1;
+    index2=basicinput{1,6}-basicinput{1,8}:basicinput{1,6}-1;
     img(:,:,index1)=double(data{1,1}{index2(index1),1});
 end
 img2=mean(img,3); % Load mean prebleach image into variable img2

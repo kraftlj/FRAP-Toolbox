@@ -45,7 +45,15 @@ if usrinputs{10,1}==2  % Fit the averaged data
     adjacent=mean(avgadjacent,1);
     f=mean(avgf,1);
     avg.f=f;
+    if basicinput{1,4}==2
+        avg.correctMF=nan;
+    else
+        if basicinput{1,9}==1
     avg.correctMF=1-(mean(adjacent(usrinputs{9,1}:usrinputs{9,2}))-mean(f(usrinputs{9,1}:usrinputs{9,2})));
+        else
+            avg.correctMF=nan;
+        end
+    end
     f=f(basicinput{1,6}+usrinputs{7,1}-1:usrinputs{7,2});
     A=[avgr',avgpbp']; % Average the data at equivalent radial distances from the center of the bleach ROI.
     [u,~,id2] = unique(A(:,1),'rows');
@@ -142,10 +150,14 @@ else
         avgadjacent(index1,:)=data(val(index1)).adjacent;
         avgpbp(end+1:end+length(data(val(index1)).pbp))=data(val(index1)).pbp;
         avgr(end+1:end+length(data(val(index1)).r))=data(val(index1)).r;
+        if basicinput{1,4}==2
+            data(val(index1)).correctMF=nan;
+        else
         if basicinput{1,9}==1
             data(val(index1)).correctMF=1-(mean(data(val(index1)).adjacent(usrinputs{9,1}:usrinputs{9,2}))-mean(data(val(index1)).normfrap(usrinputs{9,1}:usrinputs{9,2})));
         else
             data(val(index1)).correctMF=nan;
+        end
         end
         voxelSizeX=data.voxelSizeX;
         rn=basicinput{1,7}(3).*voxelSizeX;
