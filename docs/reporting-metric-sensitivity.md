@@ -59,6 +59,28 @@ The largest exported-vector D differences are:
 | `Venus_Cytoplasm_14.lsm` | 43.2788 | 38.5733 | +4.7055 |
 | `Venus_Cytoplasm_13.lsm` | 42.5016 | 37.9302 | +4.5714 |
 
+## Optimizer Landscape Check
+
+To rule out a mistaken local optimizer path, the D/MF objective was checked by
+bounded exhaustive profiling. For each fixed `D`, `MF` is a linear least-squares
+coefficient, so the best `MF` can be solved exactly and the remaining one-
+dimensional `D` profile can be scanned densely. A separate dense two-dimensional
+grid and SciPy global optimizers gave the same minima.
+
+| Dataset | Guide D | Guide MF | Guide SS | Global-search D | Global-search MF | Global-search SS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `Venus_Cytoplasm_3.lsm` | 34.7806 | 0.795314 | 1.7300e-06 | 74.2499 | 0.787332 | 1.1142e-06 |
+| `Venus_Cytoplasm_5.lsm` | 35.1196 | 0.808686 | 1.9955e-06 | 58.6777 | 0.804040 | 1.6813e-06 |
+| `Venus_Cytoplasm_9.lsm` | 24.7671 | 0.873840 | 6.7694e-07 | 31.7372 | 0.876487 | 4.9638e-07 |
+
+This means the optimizer landscape is not multi-modal in a way that hides a
+guide-valued global minimum. The guide values lie on the same broad basin, but
+not at the bottom of the weighted least-squares objective encoded in
+`DiffusionModel_2.m`. For `Venus_Cytoplasm_3.lsm`, the guide point has about
+`1.55x` the sum-squared residual of the global D/MF minimum. The remaining
+historical parity problem is therefore specifically the MATLAB-era solver
+termination path, not the mathematical objective's global minimum.
+
 ## Practical Recommendation
 
 Keep the current `CircularROI` implementation for the modern app while clearly

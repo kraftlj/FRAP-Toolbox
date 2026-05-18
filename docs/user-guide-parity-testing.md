@@ -190,17 +190,23 @@ curves and fit parameters directly:
 This isolates model equation fidelity from reader and optimizer differences.
 The automated parity suite now includes a guide-level check that drives the
 legacy diffusion fitter with MATLAB-exported vectors and reproduces the
-`Venus_Cytoplasm_1.lsm` fit parameters from Table S2.
+`Venus_Cytoplasm_1.lsm` fit parameters from Table S2. The full Venus Cytoplasm
+table is still an active optimizer-parity target: a direct landscape check shows
+that several guide D values are historical early-stopping points, not the
+weighted least-squares basin floor.
 
 ### 5. Historical Optimizer Mode
 
 The diffusion optimizer can produce different `D` values when SciPy continues
-past MATLAB's historical stopping point. The Python port now exposes a
-`legacy_matlab` optimizer mode for the diffusion fitter, and tests for parameter
-tables should remain split into two modes:
+past MATLAB's historical stopping point. The Python port exposes a
+`legacy_matlab` optimizer mode for the diffusion fitter, but the full historical
+stopping path is not yet reproduced across every Venus Cytoplasm dataset. Tests
+for parameter tables should remain split into two modes:
 
-- `legacy_matlab`: emulate MATLAB-era `lsqcurvefit` stopping behavior and expect
-  the guide's published parameter tables.
+- `legacy_matlab`: emulate MATLAB-era `lsqcurvefit` stopping behavior and
+  converge toward the guide's published parameter tables. The current hard
+  passing check covers `Venus_Cytoplasm_1.lsm`; the broader table should become
+  hard-passing once the old solver termination path is matched.
 - `modern`: use stricter SciPy defaults and assert lower residuals or stable
   regression values documented for the new app.
 

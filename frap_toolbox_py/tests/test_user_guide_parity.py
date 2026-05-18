@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from frap_toolbox_py.data.loading import load_diffusion_datasets
-from frap_toolbox_py.models.diffusion import fit_diffusion_model
+from frap_toolbox_py.models.diffusion import fit_diffusion_model, kang_frap
 from frap_toolbox_py.roi import CircularROI, adjacent_circle
 from frap_toolbox_py.types import BasicInputs, DiffusionFitConfig, FitBounds, FRAPDataset
 
@@ -335,6 +335,77 @@ def test_diffusion_legacy_fit_reproduces_guide_venus_cytoplasm_1_from_matlab_exp
     assert dataset.diffusion_coefficient == pytest.approx(expected["D"], abs=1e-2)
     assert dataset.mobile_fraction == pytest.approx(expected["MF"], abs=1e-5)
     assert dataset.sum_squared_residuals == pytest.approx(expected["SS"], rel=1e-3)
+
+
+def test_diffusion_d_mf_landscape_global_search_is_not_at_guide_d_for_venus_cytoplasm_3():
+    params_path = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_Fit_Parameters.txt"
+    frap_export = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_FRAP_datasets.txt"
+    _require_user_guide_fixtures(params_path, frap_export)
+
+    params = _read_parameter_table(params_path)
+    frap_exports = _read_vector_export(frap_export)
+    name = "Venus_Cytoplasm_3.lsm"
+    expected = params[name]
+    time = frap_exports[(name, "Time")]
+    corrected_frap = frap_exports[(name, "Corrected FRAP")]
+    fit_time = time[POST_BLEACH_INDEX:] - time[POST_BLEACH_INDEX]
+    fit_frap = corrected_frap[POST_BLEACH_INDEX:]
+    weights = fit_frap.sum()
+    target = fit_frap / (fit_time + weights)
+    frap_initial = fit_frap[0]
+    nominal_radius = 9.0 * 0.10986328426900892
+
+    def residual_sum_squares(diffusion: float, mobile_fraction: float) -> float:
+        prediction = (
+            kang_frap(
+                fit_time,
+                expected["re"],
+                nominal_radius,
+                diffusion,
+                expected["k"],
+            )
+            * mobile_fraction
+            + (1.0 - mobile_fraction) * frap_initial
+        ) / (fit_time + weights)
+        residual = prediction - target
+        return float(np.dot(residual, residual))
+
+    guide_ss = residual_sum_squares(expected["D"], expected["MF"])
+
+    # Profile the two-parameter objective over D by solving the linear least
+    # squares problem for MF at each D. This is an exhaustive bounded check of
+    # the D/MF basin, independent of the iterative optimizer path.
+    diffusion_grid = np.linspace(20.0, 100.0, 801)
+    profiled = []
+    base = frap_initial / (fit_time + weights)
+    centered_target = target - base
+    for diffusion in diffusion_grid:
+        slope = (
+            kang_frap(
+                fit_time,
+                expected["re"],
+                nominal_radius,
+                diffusion,
+                expected["k"],
+            )
+            - frap_initial
+        ) / (fit_time + weights)
+        mobile_fraction = np.dot(slope, centered_target) / np.dot(slope, slope)
+        mobile_fraction = float(np.clip(mobile_fraction, 0.0, 2.0))
+        profiled.append(
+            (
+                diffusion,
+                mobile_fraction,
+                residual_sum_squares(diffusion, mobile_fraction),
+            )
+        )
+
+    best_diffusion, best_mobile_fraction, best_ss = min(profiled, key=lambda item: item[2])
+
+    assert guide_ss == pytest.approx(expected["SS"], rel=1e-3)
+    assert best_diffusion == pytest.approx(74.25, abs=0.2)
+    assert best_mobile_fraction == pytest.approx(0.7873, abs=5e-4)
+    assert best_ss < guide_ss * 0.75
 
 
 def test_diffusion_photodecay_stage_reproduces_corrected_frap_exports():
