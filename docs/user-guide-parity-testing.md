@@ -175,6 +175,9 @@ The inferred guide mask covers these 1-based row and inclusive column intervals:
 See `docs/roi-rasterization-survey.md` for the follow-up comparison against
 OpenCV, scikit-image, Pillow, and matplotlib rasterizers.
 
+See `docs/reporting-metric-sensitivity.md` for the downstream comparison of
+ROI choices against publication-facing `D` and corrected mobile fraction values.
+
 ### 4. Model Math Parity
 
 Once preprocessing vectors match, model tests should use the MATLAB-exported
