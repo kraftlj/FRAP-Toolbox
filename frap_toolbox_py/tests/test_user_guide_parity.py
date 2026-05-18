@@ -83,6 +83,63 @@ def _load_venus_cytoplasm_1():
         )[0]
 
 
+def _inferred_legacy_venus_cytoplasm_1_bleach_mask(shape: tuple[int, int]) -> np.ndarray:
+    """Mask inferred from the MATLAB Raw FRAP export for the guide fixture."""
+
+    row_intervals = {
+        14: (253, 259),
+        15: (252, 260),
+        16: (250, 262),
+        17: (249, 263),
+        18: (249, 263),
+        19: (248, 264),
+        20: (248, 264),
+        21: (248, 264),
+        22: (248, 265),
+        23: (248, 265),
+        24: (248, 264),
+        25: (248, 264),
+        26: (248, 264),
+        27: (249, 263),
+        28: (250, 262),
+        29: (250, 262),
+        30: (252, 260),
+        31: (254, 258),
+    }
+    mask = np.zeros(shape, dtype=bool)
+    for row, (start_col, end_col) in row_intervals.items():
+        mask[row - 1, start_col - 1 : end_col] = True
+    return mask
+
+
+def _load_venus_cytoplasm_1_with_inferred_bleach_mask():
+    sample_path = (DIFFUSION_ROOT / VENUS_CYTO_1).resolve()
+    bleach_roi = CircularROI(256.0, 23.0, 9.0)
+    adjacent_roi = adjacent_circle(bleach_roi, offset_factor=2.5)
+    inputs = BasicInputs(
+        file_paths=[sample_path],
+        model_index=1,
+        roi_mode=1,
+        normalize_by_cell=False,
+        background_intensity=0.0,
+        post_bleach_frame=POST_BLEACH_INDEX,
+        roi_definition=(bleach_roi.center_x, bleach_roi.center_y, bleach_roi.radius),
+        pre_bleach_frame_count=10,
+        use_adjacent_roi=True,
+    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="Could not parse tiff pixel size",
+            module="(aicsimageio|bioio_tifffile)",
+        )
+        return load_diffusion_datasets(
+            inputs,
+            bleach_roi=_inferred_legacy_venus_cytoplasm_1_bleach_mask,
+            adjacent_roi=adjacent_roi.to_mask,
+        )[0]
+
+
 def _guide_diffusion_config(
     frap_exports: dict[tuple[str, str], np.ndarray],
     profile_exports: dict[tuple[str, str], np.ndarray],
@@ -207,6 +264,41 @@ def test_diffusion_postbleach_profile_reproduces_matlab_export_for_venus_cytopla
         profile_exports[(VENUS_CYTO_1, "Post-bleach Profile")],
         rtol=0,
         atol=1e-6,
+    )
+
+
+def test_diffusion_loader_matches_exports_when_using_inferred_legacy_bleach_mask():
+    frap_export = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_FRAP_datasets.txt"
+    profile_export = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_Postbleach_profiles.txt"
+    params_path = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_Fit_Parameters.txt"
+    _require_user_guide_fixtures(frap_export, profile_export, params_path, DIFFUSION_ROOT / VENUS_CYTO_1)
+
+    frap_exports = _read_vector_export(frap_export)
+    profile_exports = _read_vector_export(profile_export)
+    params = _read_parameter_table(params_path)
+    dataset = _load_venus_cytoplasm_1_with_inferred_bleach_mask()
+    python_time = dataset.time - dataset.time[POST_BLEACH_INDEX]
+    inferred_mask = _inferred_legacy_venus_cytoplasm_1_bleach_mask((512, 512))
+
+    assert inferred_mask.sum() == 252
+    np.testing.assert_allclose(python_time, frap_exports[(VENUS_CYTO_1, "Time")], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(dataset.frap, frap_exports[(VENUS_CYTO_1, "Raw FRAP")], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(
+        dataset.norm_frap,
+        frap_exports[(VENUS_CYTO_1, "Normalized FRAP")],
+        rtol=0,
+        atol=1e-6,
+    )
+    np.testing.assert_allclose(dataset.radius, profile_exports[(VENUS_CYTO_1, "Distance")], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(
+        dataset.post_bleach_profile,
+        profile_exports[(VENUS_CYTO_1, "Post-bleach Profile")],
+        rtol=0,
+        atol=1e-6,
+    )
+    assert dataset.corrected_mobile_fraction == pytest.approx(
+        params[VENUS_CYTO_1]["MF Corrected"],
+        abs=1e-3,
     )
 
 

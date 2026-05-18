@@ -143,6 +143,35 @@ test remains marked `xfail` because circular ROI rasterization still differs
 from the 2014 MATLAB `poly2mask` behavior, which affects raw and normalized
 FRAP curves.
 
+For `Venus_Cytoplasm_1.lsm`, the MATLAB-exported Raw FRAP vector implies a
+252-pixel bleach ROI. When that inferred mask is supplied to the Python loader,
+the live image data reproduces the MATLAB Time, Raw FRAP, Normalized FRAP,
+Distance, and Post-bleach Profile vectors to export precision. That proves the
+remaining live-loader gap is localized to rasterizing the user-entered circle,
+not LSM reading, timestamp extraction, profile construction, or normalization.
+The inferred guide mask covers these 1-based row and inclusive column intervals:
+
+| Row | Columns |
+| --- | --- |
+| 14 | 253-259 |
+| 15 | 252-260 |
+| 16 | 250-262 |
+| 17 | 249-263 |
+| 18 | 249-263 |
+| 19 | 248-264 |
+| 20 | 248-264 |
+| 21 | 248-264 |
+| 22 | 248-265 |
+| 23 | 248-265 |
+| 24 | 248-264 |
+| 25 | 248-264 |
+| 26 | 248-264 |
+| 27 | 249-263 |
+| 28 | 250-262 |
+| 29 | 250-262 |
+| 30 | 252-260 |
+| 31 | 254-258 |
+
 ### 4. Model Math Parity
 
 Once preprocessing vectors match, model tests should use the MATLAB-exported
