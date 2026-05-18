@@ -1,0 +1,26 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+
+.venv/
+.venv*/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+tmp/
+
+# Large local microscopy fixtures and exploratory porting work live outside the
+# public-facing source tree.
+test-data/
+scratch/
+
+hs_err_pid*.log
+exports/
+cli_output.txt
+python_out.txt
+fit_results*.txt
+fitted_profile*.txt
+matlab_profile_fit_results.txt
+python_postbleach_profile_*.txt
+postbleach_profile*.png

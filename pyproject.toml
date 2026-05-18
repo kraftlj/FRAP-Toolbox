@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frap-toolbox-py"
+version = "0.1.0"
+description = "Python port of the FRAP Toolbox for FRAP data analysis"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+  { name = "Lewis J. Kraft" },
+  { name = "Jacob Dowler" },
+  { name = "Anne K. Kenworthy" }
+]
+maintainers = [
+  { name = "Ported by FRAP-Toolbox Python contributors" }
+]
+readme = "README.md"
+keywords = ["frap", "fluorescence", "image-analysis", "biophysics"]
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Bio-Informatics"
+]
+dependencies = [
+  "bioio>=3.3",
+  "bioio-tifffile>=1.1",
+  "numpy>=1.23",
+  "scipy>=1.10",
+  "scikit-image>=0.21",
+  "matplotlib>=3.8",
+  "pandas>=1.5",
+  "ome-types>=0.5",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=7.4"
+]
+app = [
+  "streamlit>=1.51"
+]
+bioformats = [
+  "bioio-bioformats>=2.0"
+]
+nd2 = [
+  "bioio-nd2>=1.7"
+]
+legacy-io = [
+  "aicsimageio>=4.10"
+]
+qt = [
+  "PySide6>=6.6",
+  "pytest-qt>=4.4",
+  "qtpy>=2.4"
+]
+
+[project.scripts]
+frap-toolbox = "frap_toolbox_py.cli:main"
+frap-toolbox-app = "frap_toolbox_py.app_launcher:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["frap_toolbox_py*"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["frap_toolbox_py/tests"]

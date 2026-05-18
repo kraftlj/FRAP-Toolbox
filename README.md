@@ -358,6 +358,24 @@ FRAP-Toolbox displays warning dialogs when it detects potential problems, such a
 ## Developer Topics
 Interested in contributing or porting FRAP-Toolbox to Python? Reach out to the team and explore the source code on GitHub: <https://github.com/kraftlj/FRAP-Toolbox>.
 
+### Python port (experimental)
+- The Python implementation lives under `frap_toolbox_py/` and currently supports the diffusion workflow.
+- The preferred image I/O layer is BioIO with the `bioio-tifffile` plugin. Optional extras add ND2, Bio-Formats, and legacy AICSImageIO readers.
+- Large local microscopy fixtures belong in ignored `test-data/`; exploratory porting scripts belong in ignored `scratch/`.
+- Install the modern app stack with Python 3.10+:
+   ```bash
+   python -m pip install -e ".[app,test]"
+   ```
+- Launch the local browser app:
+   ```bash
+   frap-toolbox-app
+   ```
+- Run the diffusion workflow from the command line:
+   ```bash
+   frap-toolbox /path/to/dataset1.lsm --roi 256 23 9 --post-bleach-frame 21
+   ```
+- Reaction models, interactive ROI drawing, and export parity are the next major porting targets.
+
 ## Recent Applications
 Below are recent publications that applied FRAP-Toolbox algorithms. Each image is available in the `Images/` directory.
 
@@ -405,6 +423,4 @@ Phone: 615.322.6615
 
 - Support: [kraftlj@gmail.com](mailto:kraftlj@gmail.com)
 - Correspondence: [anne.kenworthy@vanderbilt.edu](mailto:anne.kenworthy@vanderbilt.edu)
-
-
 

@@ -1,0 +1,111 @@
+# Running the FRAP-Toolbox Python Port
+
+This guide explains how to set up a Python environment and run the diffusion workflow
+implemented in `frap_toolbox_py`. The steps assume macOS or Linux with bash, but only the
+activation command differs on Windows.
+
+## 1. Prerequisites
+- Python 3.10 or newer
+- A C/Fortran toolchain for SciPy (Xcode CLT on macOS, build-essential on Linux)
+- Java is only needed if you install the optional Bio-Formats reader extra
+
+## 2. Create and activate a virtual environment
+```bash
+python3.13 -m venv .venv
+source .venv/bin/activate
+```
+
+If you prefer `conda`, create and activate an equivalent Python 3.10+ environment instead.
+
+## 3. Install the package and dependencies
+Install the project in editable mode so CLI and app changes are picked up automatically.
+```bash
+pip install --upgrade pip
+pip install -e ".[app,test]"
+```
+
+Optional extras:
+- `pip install -e ".[nd2]"` for the BioIO ND2 reader.
+- `pip install -e ".[bioformats]"` for the BioIO Bio-Formats reader.
+- `pip install -e ".[legacy-io]"` for the older AICSImageIO fallback.
+
+## 4. Run the local app
+```bash
+frap-toolbox-app
+```
+
+The app opens a local Streamlit browser interface for selecting datasets, entering
+diffusion ROI parameters, running the fit, and reviewing diagnostic plots.
+
+## 5. Recommended test dataset parameters
+The original MATLAB user guide documents parameters for the Zeiss LSM diffusion
+datasets used during port validation. If you have the local `test-data/` folder
+available, use:
+- ROI center: `(256, 23)`
+- ROI radius: `9`
+- Post-bleach frame: `21`
+- Pre-bleach frames for normalization: `10`
+- Background intensity: `0`
+- Enable corrected mobile fraction by using an adjacent ROI (2.5× radius offset)
+
+## 6. Run the diffusion CLI
+All commands assume the project root as the working directory and the virtual environment
+is active.
+
+Single stack:
+```bash
+frap-toolbox test-data/Diffusion/Venus_Cytoplasm_1.lsm \
+  --roi 256 23 9 \
+  --post-bleach-frame 21 \
+  --pre-bleach-count 10 \
+  --background 0 \
+  --use-adjacent-roi
+```
+
+Batch the local Zeiss diffusion stacks, if you have the ignored `test-data/`
+fixtures in your checkout:
+```bash
+frap-toolbox test-data/Diffusion/Venus_Cytoplasm_*.lsm \
+  --roi 256 23 9 \
+  --post-bleach-frame 21 \
+  --pre-bleach-count 10 \
+  --background 0 \
+  --use-adjacent-roi
+```
+
+Useful flags:
+- `--adjacent-offset` (default `2.5`): controls spacing of the adjacent ROI used when
+  computing corrected mobile fractions.
+- `--normalize-by-cell`: supply if you draw or compute a whole-cell mask and want to
+  normalize by it.
+- `--model`: currently only accepts `diffusion` but remains for future extensions.
+
+Output includes the fitted bleach depth, effective radius, diffusion coefficient, and
+mobile fraction. The command returns a non-zero exit code if dataset loading or fitting
+fails, making it suitable for scripted validation.
+
+## 7. Run unit tests
+```bash
+python -m pytest
+```
+
+This executes the regression tests under `frap_toolbox_py/tests`. Integration tests that
+need the large local `test-data/` fixtures skip automatically when those files are not
+present. Add new tests before contributing model changes or additional readers.
+
+## 8. Troubleshooting tips
+- If you see repeated `Could not parse tiff pixel size` warnings, the TIFF metadata did not
+  include a usable physical pixel size. The fits still run; specify voxel sizes manually if
+  you need absolute distance units.
+- A failure such as `Covariance of the parameters could not be estimated` typically means
+  the fit saturated bounds or the ROI was mis-specified. Re-check the ROI center, radius,
+  and post-bleach frame.
+- The default reader path is BioIO plus `bioio-tifffile`. Add the `nd2` or `bioformats`
+  extras when your microscope format needs another BioIO plugin.
+
+## 9. Next steps
+- Explore `frap_toolbox_py/data/loading.py` and `frap_toolbox_py/models/diffusion.py` to
+  understand how stacks are loaded and fitted.
+- Compare CLI output to the legacy MATLAB results stored in `test-data/Diffusion/*` to
+  verify numerical agreement.
+- Use the provided commands as a template for processing your own FRAP datasets.
