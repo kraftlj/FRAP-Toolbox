@@ -13,6 +13,16 @@ separate three questions that are easy to conflate:
 The tests should be optional in public source checkouts because `test-data/`
 contains large local fixtures and is intentionally ignored by git.
 
+Clean checkout CI runs without `test-data/` and expects these fixture-dependent
+tests to skip. Local developers with the ignored archive installed can run this
+parity layer directly with:
+
+```bash
+python -m pytest -q frap_toolbox_py/tests/test_user_guide_parity.py
+```
+
+See `docs/developer-setup.md` for install extras and packaging checks.
+
 ## Guide-Derived Workflows
 
 ### Diffusion

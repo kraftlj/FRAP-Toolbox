@@ -3,6 +3,34 @@ FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photoblea
 Lewis J. Kraft, Jacob Dowler, and Anne K. Kenworthy
 Vanderbilt University Medical Center, Nashville TN
 
+# Modern Python Port
+
+This repository now contains both the legacy MATLAB FRAP-Toolbox source and an
+experimental modern Python package under `frap_toolbox_py/`. The Python port is
+the active modernization target for BioIO-backed image loading, reproducible
+command-line analysis, Streamlit app deployment, and MATLAB parity tests.
+
+Quick start for the Python package:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[test]"
+python -m pytest -q
+```
+
+Install optional pieces only when needed:
+
+- `python -m pip install -e ".[app]"` for the local Streamlit app.
+- `python -m pip install -e ".[nd2]"` for Nikon ND2 files through BioIO.
+- `python -m pip install -e ".[bioformats]"` for Bio-Formats-backed readers.
+- `python -m pip install -e ".[legacy-io]"` for the AICSImageIO fallback path.
+
+Large microscopy fixtures are intentionally not committed. Tests that require
+the local `test-data/` archive skip automatically on a clean public checkout;
+see `docs/developer-setup.md` for everyday CI checks and optional parity runs.
+
 # FRAP-Toolbox Website Content
 
 This Markdown file reproduces the informational content from the legacy FRAP-Toolbox website so it can live in a GitHub repository. Use the table of contents below to navigate the sections.
@@ -359,10 +387,17 @@ FRAP-Toolbox displays warning dialogs when it detects potential problems, such a
 Interested in contributing or porting FRAP-Toolbox to Python? Reach out to the team and explore the source code on GitHub: <https://github.com/kraftlj/FRAP-Toolbox>.
 
 ### Python port (experimental)
-- The Python implementation lives under `frap_toolbox_py/` and currently supports the diffusion workflow.
-- The preferred image I/O layer is BioIO with the `bioio-tifffile` plugin. Optional extras add ND2, Bio-Formats, and legacy AICSImageIO readers.
+- The Python implementation lives under `frap_toolbox_py/` and currently
+  supports diffusion analysis plus Reaction 1 and Reaction 2 backend fitting.
+- The preferred image I/O layer is BioIO with the `bioio-tifffile` plugin.
+  Optional extras add ND2, Bio-Formats, app, Qt, and legacy AICSImageIO readers.
 - Large local microscopy fixtures belong in ignored `test-data/`; exploratory porting scripts belong in ignored `scratch/`.
-- Install the modern app stack with Python 3.10+:
+- Install the core test stack with Python 3.10+:
+   ```bash
+   python -m pip install -e ".[test]"
+   python -m pytest -q
+   ```
+- Install the modern app stack:
    ```bash
    python -m pip install -e ".[app,test]"
    ```
@@ -380,6 +415,9 @@ Interested in contributing or porting FRAP-Toolbox to Python? Reach out to the t
 - Reaction 1 and Reaction 2 backend fitters are available through
   `--model reaction1` and `--model reaction2`; raw guide parity still needs
   stored user-defined bleach/cell ROI masks for the ND2 workflows.
+- Clean checkout CI runs without `test-data/`; local MATLAB parity testing is
+  documented in `docs/developer-setup.md` and
+  `docs/user-guide-parity-testing.md`.
 
 ## Recent Applications
 Below are recent publications that applied FRAP-Toolbox algorithms. Each image is available in the `Images/` directory.

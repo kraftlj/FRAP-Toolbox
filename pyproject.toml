@@ -1,12 +1,13 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "frap-toolbox-py"
 version = "0.1.0"
-description = "Python port of the FRAP Toolbox for FRAP data analysis"
-license = { file = "LICENSE" }
+description = "Modern Python port of the FRAP Toolbox for quantitative FRAP analysis"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [
   { name = "Lewis J. Kraft" },
@@ -19,11 +20,17 @@ maintainers = [
 readme = "README.md"
 keywords = ["frap", "fluorescence", "image-analysis", "biophysics"]
 classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Operating System :: OS Independent",
-  "Topic :: Scientific/Engineering :: Bio-Informatics"
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Scientific/Engineering :: Image Processing"
 ]
 dependencies = [
   "bioio>=3.3",
@@ -57,6 +64,11 @@ qt = [
   "pytest-qt>=4.4",
   "qtpy>=2.4"
 ]
+
+[project.urls]
+Homepage = "https://github.com/kraftlj/FRAP-Toolbox"
+Repository = "https://github.com/kraftlj/FRAP-Toolbox"
+Issues = "https://github.com/kraftlj/FRAP-Toolbox/issues"
 
 [project.scripts]
 frap-toolbox = "frap_toolbox_py.cli:main"
