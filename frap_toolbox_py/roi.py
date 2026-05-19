@@ -225,17 +225,30 @@ def save_roi_mask(
     save_roi_masks(path, {_validate_mask_name(name): mask}, **kwargs)
 
 
+def _mask_source_label(path: Any) -> str:
+    if isinstance(path, (str, Path)):
+        return str(path)
+    return str(getattr(path, "name", "<stream>"))
+
+
+def _reset_mask_source(path: Any) -> None:
+    if hasattr(path, "seek"):
+        path.seek(0)
+
+
 def load_roi_masks(
-    path: Path | str,
+    path: Path | str | Any,
     *,
     expected_shape: Optional[Tuple[int, int]] = None,
 ) -> ROIMaskSet:
     """Load and validate a saved FRAP-Toolbox ROI mask container."""
 
-    input_path = Path(path)
-    with np.load(input_path, allow_pickle=False) as data:
+    input_label = _mask_source_label(path)
+    input_source = Path(path) if isinstance(path, (str, Path)) else path
+    _reset_mask_source(input_source)
+    with np.load(input_source, allow_pickle=False) as data:
         if "metadata_json" not in data.files:
-            raise ValueError(f"{input_path} is not a FRAP-Toolbox ROI mask file.")
+            raise ValueError(f"{input_label} is not a FRAP-Toolbox ROI mask file.")
         metadata = json.loads(str(data["metadata_json"].item()))
 
         if metadata.get("format") != ROI_MASK_FORMAT:
@@ -267,13 +280,14 @@ def load_roi_masks(
             f"metadata={sorted(metadata_names)}, arrays={sorted(loaded_names)}."
         )
     if not masks:
-        raise ValueError(f"{input_path} does not contain any ROI mask arrays.")
+        raise ValueError(f"{input_label} does not contain any ROI mask arrays.")
 
+    _reset_mask_source(input_source)
     return ROIMaskSet(masks=masks, metadata=metadata)
 
 
 def load_roi_mask(
-    path: Path | str,
+    path: Path | str | Any,
     name: str,
     *,
     expected_shape: Optional[Tuple[int, int]] = None,
