@@ -7,6 +7,8 @@ import numpy as np
 import pytest
 
 from frap_toolbox_py.app import (
+    SOFTWARE_AUTHORS,
+    SOFTWARE_CITATION,
     _build_inputs,
     _default_fit_mode,
     _load_mask_array,
@@ -25,6 +27,17 @@ def test_default_fit_modes_match_cli_model_defaults():
     assert _default_fit_mode("diffusion") == "global"
     assert _default_fit_mode("reaction1") == "individual"
     assert _default_fit_mode("reaction2") == "average_curve"
+
+
+def test_app_attribution_uses_five_author_software_order():
+    assert SOFTWARE_AUTHORS == (
+        "Lewis J. Kraft, Jacob Dowler, Charles A. Day, Minchul Kang, and Anne K. Kenworthy"
+    )
+    assert SOFTWARE_CITATION == (
+        "Kraft LJ, Dowler J, Day CA, Kang M, Kenworthy AK. (2014). "
+        "FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching. "
+        "http://www.fraptoolbox.com (accessed Month Day, Year)."
+    )
 
 
 def test_build_inputs_uses_zero_based_post_bleach_frame(tmp_path: Path):

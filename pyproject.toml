@@ -12,6 +12,8 @@ requires-python = ">=3.10"
 authors = [
   { name = "Lewis J. Kraft" },
   { name = "Jacob Dowler" },
+  { name = "Charles A. Day" },
+  { name = "Minchul Kang" },
   { name = "Anne K. Kenworthy" }
 ]
 maintainers = [

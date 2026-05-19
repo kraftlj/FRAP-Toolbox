@@ -1,6 +1,6 @@
 FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching
 ============
-Lewis J. Kraft, Jacob Dowler, and Anne K. Kenworthy
+Lewis J. Kraft, Jacob Dowler, Charles A. Day, Minchul Kang, and Anne K. Kenworthy
 Vanderbilt University Medical Center, Nashville TN
 
 # Modern Python Port
@@ -84,7 +84,7 @@ Researchers should be able to apply established FRAP analysis methods to their o
 If you cite FRAP-Toolbox, please use:
 
 ```
-Kraft, LJ, Dowler J, Kenworthy AK. (2014). Frap-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching. http://www.fraptoolbox.com (accessed Month Day, Year)
+Kraft LJ, Dowler J, Day CA, Kang M, Kenworthy AK. (2014). FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching. http://www.fraptoolbox.com (accessed Month Day, Year).
 ```
 
 ### License

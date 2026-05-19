@@ -50,6 +50,14 @@ DIFFUSION_FIT_MODES = [
     "simplified_kang_global",
 ]
 REACTION_FIT_MODES = ["individual", "average_curve"]
+SOFTWARE_AUTHORS = (
+    "Lewis J. Kraft, Jacob Dowler, Charles A. Day, Minchul Kang, and Anne K. Kenworthy"
+)
+SOFTWARE_CITATION = (
+    "Kraft LJ, Dowler J, Day CA, Kang M, Kenworthy AK. (2014). "
+    "FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching. "
+    "http://www.fraptoolbox.com (accessed Month Day, Year)."
+)
 
 MaskSource = Union[BinaryIO, Path, str]
 
@@ -410,6 +418,8 @@ def main() -> None:
 
     st.set_page_config(page_title="FRAP Toolbox", layout="wide")
     st.title("FRAP Toolbox")
+    st.caption(f"Authors: {SOFTWARE_AUTHORS}")
+    st.caption(f"Citation: {SOFTWARE_CITATION}")
 
     with st.sidebar:
         st.header("Dataset")
