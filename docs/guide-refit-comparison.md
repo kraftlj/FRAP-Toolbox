@@ -115,9 +115,30 @@ as `ReactionModel1.m`: `(F(t) - FRAP) / (t + sum(FRAP))`.
 | `Venus_1002.nd2` | 0.855588 | 0.855589 | 0.753077 | 0.753077 | 0.0158993 | 0.0158992 | 6.70117e-08 | 6.70108e-08 |
 | `Avg.` | 0.864622 | 0.864622 | 0.757685 | 0.757685 | 0.0121697 | 0.0121697 | 2.09934e-07 | 2.09931e-07 |
 
+## Reaction 1 Raw ROI Diagnostics
+
+The readable `Venus_1002.nd2` raw stack matches the MATLAB-exported time vector,
+but the stored ND2 stimulation ROI does not reproduce the exported analysis
+ROI. The table below compares raw ND2-derived candidate curves against the
+MATLAB-exported `Venus_1002.nd2` vectors.
+
+| Candidate | Target | Pixels | RMSE | MAE | Max abs. error | First post-bleach mean | Target first post-bleach mean | Corr. |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Embedded ND2 stimulation polygon, best common mapping | Raw FRAP | 17,253 | 183.8 | 157.6 | 646.8 | 761.1 | 114.3 | 0.9443 |
+| Threshold bleach aid: `pre > 1000` and `post/pre < 0.1` | Raw FRAP | 6,653 | 11.69 | 10.12 | 33.5 | 134.8 | 114.3 | 0.9998 |
+| Threshold cell aid: `300 < pre < 2200` and `post/pre < 0.5` | Cell | 5,337 | 26.98 | 22.30 | 76.89 | 446.0 | 518.6 | 0.9858 |
+
+The threshold masks are useful reconstruction diagnostics, not canonical masks:
+they are close enough to show that the raw image data are in the right
+neighborhood, but they are not export-rounding parity. Exact raw Reaction 1
+parity still needs the original hand-drawn MATLAB analysis masks or ROI
+vertices. `Venus_1001.nd2` still fails during ND2 metadata parsing with
+`Unknown data type in metadata header: 0`, so that file remains a reader issue
+rather than a model issue.
+
 ## Reaction Guide Status
 
 | Workflow | Guide file(s) | Python refit status |
 | --- | --- | --- |
-| Reaction 1 | `test-data/Reaction 1/Venus_NCTransport_Reaction_Fit_Parameters.txt`, `*_FRAP_datasets.txt`, raw `Venus_*.nd2` files | Refit-ready from exported vectors; `Venus_1002.nd2` raw timestamps match the MATLAB time export; raw curve parity still needs stored user-defined bleach and cell ROI masks. |
-| Reaction 2 | `test-data/Reaction 2/Venus-Atg5_NCTransport_Reaction2_Fit_Parameters.txt`, raw `Venus-Atg5_*.nd2` files | Backend model is ported and raw ND2 timestamps load; guide curve refit awaits Reaction 2 FRAP vector export or stored ROI masks for the ND2 files. |
+| Reaction 1 | `test-data/Reaction 1/Venus_NCTransport_Reaction_Fit_Parameters.txt`, `*_FRAP_datasets.txt`, raw `Venus_*.nd2` files | Refit-ready from exported vectors; `Venus_1002.nd2` raw timestamps match the MATLAB time export; stimulation ROI and threshold diagnostics are now quantified; exact raw curve parity still needs stored user-defined bleach and cell ROI masks. |
+| Reaction 2 | `test-data/Reaction 2/Venus-Atg5_NCTransport_Reaction2_Fit_Parameters.txt`, raw `Venus-Atg5_*.nd2` files | Backend model is ported; both raw ND2 files load with expected stack shape, integer pixels, pixel size, and bleach-relative timestamps; guide curve refit awaits Reaction 2 FRAP vector export or stored ROI masks for the ND2 files. |

@@ -63,6 +63,87 @@ def _open_image_or_skip(path: Path):
         pytest.skip(f"Microscopy reader for {path.name} is not installed: {exc}")
 
 
+def _curve_error_metrics(curve: np.ndarray, target: np.ndarray) -> dict[str, float]:
+    diff = np.asarray(curve, dtype=float) - np.asarray(target, dtype=float)
+    return {
+        "rmse": float(np.sqrt(np.mean(diff * diff))),
+        "mae": float(np.mean(np.abs(diff))),
+        "max_abs": float(np.max(np.abs(diff))),
+        "pre_mean": float(np.mean(curve[:5])),
+        "post": float(curve[5]),
+        "tail_mean": float(np.mean(curve[-10:])),
+        "corr": float(np.corrcoef(curve, target)[0, 1]),
+    }
+
+
+def _reaction1_venus_1002_stack_and_exports():
+    frap_export = REACTION1_ROOT / "Venus_NCTransport_Reaction_FRAP_datasets.txt"
+    raw_path = REACTION1_ROOT / "Venus_1002.nd2"
+    _require_user_guide_fixtures(frap_export, raw_path)
+
+    frap_exports = _read_vector_export(frap_export)
+    image, _ = _open_image_or_skip(raw_path)
+    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0), dtype=float)
+    return raw_path, stack, frap_exports
+
+
+def _nd2_stimulation_polygon_candidate_masks(path: Path, shape: tuple[int, int]) -> dict[str, np.ndarray]:
+    nd2 = pytest.importorskip("nd2")
+    from skimage.draw import polygon
+
+    with nd2.ND2File(str(path)) as nd2_file:
+        rois = list(nd2_file.rois.values())
+
+    if not rois:
+        pytest.skip(f"{path.name} has no ND2 ROI metadata.")
+
+    points = rois[0].animParams[0].extrudedShape.basePoints
+    x = np.asarray([point.x for point in points], dtype=float)
+    y = np.asarray([point.y for point in points], dtype=float)
+    height, width = shape
+
+    coordinate_sets = {
+        "xy_plus": ((x + 0.5) * (width - 1), (y + 0.5) * (height - 1)),
+        "xy_flip": ((x + 0.5) * (width - 1), (0.5 - y) * (height - 1)),
+        "xy_plus_512": ((x + 0.5) * width, (y + 0.5) * height),
+        "xy_flip_512": ((x + 0.5) * width, (0.5 - y) * height),
+        "swap_plus": ((y + 0.5) * (width - 1), (x + 0.5) * (height - 1)),
+        "swap_flip": ((0.5 - y) * (width - 1), (x + 0.5) * (height - 1)),
+    }
+
+    masks = {}
+    for label, (cols, rows) in coordinate_sets.items():
+        rr, cc = polygon(rows, cols, shape=shape)
+        mask = np.zeros(shape, dtype=bool)
+        mask[rr, cc] = True
+        masks[label] = mask
+    return masks
+
+
+def _threshold_bleach_candidate(stack: np.ndarray) -> np.ndarray:
+    pre_bleach = stack[:5].mean(axis=0)
+    post_bleach = stack[5]
+    ratio = np.divide(
+        post_bleach,
+        pre_bleach,
+        out=np.ones_like(post_bleach, dtype=float),
+        where=pre_bleach > 0,
+    )
+    return (pre_bleach > 1000.0) & (ratio < 0.1)
+
+
+def _threshold_cell_candidate(stack: np.ndarray) -> np.ndarray:
+    pre_bleach = stack[:5].mean(axis=0)
+    post_bleach = stack[5]
+    ratio = np.divide(
+        post_bleach,
+        pre_bleach,
+        out=np.ones_like(post_bleach, dtype=float),
+        where=pre_bleach > 0,
+    )
+    return (pre_bleach > 300.0) & (pre_bleach < 2200.0) & (ratio < 0.5)
+
+
 def _load_venus_cytoplasm_1():
     sample_path = (DIFFUSION_ROOT / VENUS_CYTO_1).resolve()
     bleach_roi = CircularROI(256.0, 23.0, 9.0)
@@ -323,18 +404,95 @@ def test_reaction1_nd2_time_metadata_matches_matlab_export_for_venus_1002():
     )
 
 
+def test_reaction1_venus_1001_nd2_failure_is_reader_metadata_not_model_logic():
+    raw_path = REACTION1_ROOT / "Venus_1001.nd2"
+    _require_user_guide_fixtures(raw_path)
+
+    try:
+        image, _ = _open_image(raw_path)
+    except ImportError as exc:
+        if "Unknown data type in metadata header: 0" not in str(exc):
+            pytest.skip(f"ND2 reader is not available for {raw_path.name}: {exc}")
+        assert "Unknown data type in metadata header: 0" in str(exc)
+        return
+
+    try:
+        stack = np.asarray(image.get_image_data("TYX", C=0, Z=0))
+    except ValueError as exc:
+        assert "Unknown data type in metadata header: 0" in str(exc)
+        return
+
+    assert stack.shape == (185, 512, 512)
+
+
+def test_reaction1_venus_1002_embedded_stimulation_roi_does_not_reproduce_raw_export():
+    raw_path, stack, frap_exports = _reaction1_venus_1002_stack_and_exports()
+    target = frap_exports[("Venus_1002.nd2", "Raw FRAP")]
+    masks = _nd2_stimulation_polygon_candidate_masks(raw_path, stack.shape[1:])
+
+    candidates = []
+    for label, mask in masks.items():
+        curve = stack[:, mask].mean(axis=1)
+        metrics = _curve_error_metrics(curve, target)
+        candidates.append((metrics["rmse"], label, int(mask.sum()), metrics))
+
+    best_rmse, best_label, best_pixels, best_metrics = min(candidates)
+
+    assert best_label == "xy_plus"
+    assert best_pixels == 17253
+    assert best_rmse == pytest.approx(183.8, abs=0.5)
+    assert best_metrics["post"] == pytest.approx(761.1, abs=0.5)
+    assert abs(best_metrics["post"] - target[5]) > 600.0
+
+
+def test_reaction1_venus_1002_threshold_inferred_bleach_mask_is_close_but_not_exact():
+    _, stack, frap_exports = _reaction1_venus_1002_stack_and_exports()
+    target = frap_exports[("Venus_1002.nd2", "Raw FRAP")]
+    mask = _threshold_bleach_candidate(stack)
+    curve = stack[:, mask].mean(axis=1)
+    metrics = _curve_error_metrics(curve, target)
+
+    assert int(mask.sum()) == 6653
+    assert metrics["rmse"] == pytest.approx(11.69, abs=0.1)
+    assert metrics["mae"] == pytest.approx(10.12, abs=0.1)
+    assert metrics["max_abs"] == pytest.approx(33.5, abs=0.2)
+    assert metrics["corr"] > 0.9998
+    assert metrics["max_abs"] > 10.0
+
+
+def test_reaction1_venus_1002_threshold_inferred_cell_mask_is_close_but_not_exact():
+    _, stack, frap_exports = _reaction1_venus_1002_stack_and_exports()
+    target = frap_exports[("Venus_1002.nd2", "Cell")]
+    mask = _threshold_cell_candidate(stack)
+    curve = stack[:, mask].mean(axis=1)
+    metrics = _curve_error_metrics(curve, target)
+
+    assert int(mask.sum()) == 5337
+    assert metrics["rmse"] == pytest.approx(26.98, abs=0.1)
+    assert metrics["mae"] == pytest.approx(22.30, abs=0.1)
+    assert metrics["max_abs"] == pytest.approx(76.89, abs=0.2)
+    assert metrics["corr"] > 0.985
+    assert metrics["max_abs"] > 50.0
+
+
 @pytest.mark.parametrize("raw_name", ["Venus-Atg5_1002.nd2", "Venus-Atg5_1003.nd2"])
 def test_reaction2_nd2_time_metadata_uses_seconds_after_bleach(raw_name: str):
     raw_path = REACTION2_ROOT / raw_name
     _require_user_guide_fixtures(raw_path)
 
     image, _ = _open_image_or_skip(raw_path)
-    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0), dtype=float)
+    raw_stack = image.get_image_data("TYX", C=0, Z=0)
+    stack = np.asarray(raw_stack, dtype=float)
     times, time_source = _extract_time_vector(image, stack.shape[0])
     bleach_relative_time = times - times[5]
 
+    pixel_sizes = image.physical_pixel_sizes
+    assert np.issubdtype(raw_stack.dtype, np.integer)
     assert stack.shape == (185, 512, 512)
     assert time_source == "ome_planes"
+    assert pixel_sizes.X == pytest.approx(0.15537014235055974)
+    assert pixel_sizes.Y == pytest.approx(0.15537014235055974)
+    assert stack[:5].mean() > stack[5].mean()
     assert bleach_relative_time[5] == pytest.approx(0.0, abs=1e-12)
     assert bleach_relative_time[6] == pytest.approx(10.0, abs=0.1)
     assert bleach_relative_time[-1] == pytest.approx(1790.0, abs=0.1)

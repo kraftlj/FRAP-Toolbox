@@ -142,9 +142,14 @@ photodecay correction from normalized FRAP, now gives:
   version.
 - Reaction 1 and Reaction 2 backend fitters are now ported. Reaction 1 is
   pinned to the exported `Venus_NCTransport` guide vectors; Reaction 2 is pinned
-  with synthetic equation/fitting tests and raw ND2 timestamp smoke tests because
-  this checkout includes its parameter table and raw ND2 files, but not its FRAP
-  vector export.
+  with synthetic equation/fitting tests and raw ND2 stack/timestamp smoke tests
+  because this checkout includes its parameter table and raw ND2 files, but not
+  its FRAP vector export.
+- Reaction 1 raw diagnostics now show that the embedded ND2 stimulation polygon
+  does not reproduce the exported `Venus_1002.nd2` Raw FRAP curve. Simple
+  threshold-derived bleach/cell candidates are close but not exact, reinforcing
+  that the missing artifact is the hand-drawn MATLAB analysis ROI, not the
+  reaction model.
 
 ## Next Steps
 

@@ -96,6 +96,21 @@ or stored ROIs for the ND2 files. `Venus_1001.nd2` currently raises a legacy ND2
 metadata parser error in both BioIO and AICSImageIO paths, so Reaction 1 raw
 loader tests use the readable `Venus_1002.nd2` fixture.
 
+The readable `Venus_1002.nd2` fixture now has a raw preprocessing diagnostic.
+The ND2 contains an embedded stimulation polygon, but that polygon is not the
+analysis ROI used by the MATLAB guide export. Using common normalized ND2 ROI
+coordinate mappings, the best stimulation-polygon candidate has 17,253 pixels
+and gives Raw FRAP RMSE `183.8` against the exported guide vector; its first
+post-bleach mean is `761.1`, versus the guide value `114.3`. A simple
+image-derived bleach candidate, `(prebleach mean > 1000) & (post/pre < 0.1)`,
+is much closer with 6,653 pixels, Raw FRAP RMSE `11.69`, max absolute error
+`33.5`, and correlation `>0.9998`, but it is not export-rounding parity. A
+similarly exploratory cell candidate,
+`(300 < prebleach mean < 2200) & (post/pre < 0.5)`, gives Cell-vector RMSE
+`26.98` and max absolute error `76.89`. These candidates are documented as
+legacy reconstruction aids only; exact raw Reaction 1 parity still requires the
+original hand-drawn analysis masks or ROI vertices.
+
 ## Test Layers
 
 ### 1. Reference Export Contract
@@ -256,8 +271,9 @@ Reaction 2 backend support is also present:
 - Optimization residual follows `ReactionModel2.m`, which is unweighted even
   though the exported diagnostic residuals and SS are weighted.
 - The current archive lacks a Reaction 2 FRAP vector export, so tests cover the
-  equation/fitting behavior synthetically, verify raw ND2 timestamp loading for
-  both Reaction 2 files, and keep the guide parameter-table contract intact.
+  equation/fitting behavior synthetically, verify raw ND2 stack shape, integer
+  pixel type, pixel size, and timestamp loading for both Reaction 2 files, and
+  keep the guide parameter-table contract intact.
 
 ### 7. Output Writer Parity
 
