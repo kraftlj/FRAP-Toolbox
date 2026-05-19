@@ -374,11 +374,14 @@ Interested in contributing or porting FRAP-Toolbox to Python? Reach out to the t
    ```bash
    frap-toolbox /path/to/dataset1.lsm --roi 256 23 9 --post-bleach-frame 21
    ```
+- Saved hand-drawn ROI masks can be reused from the command line with
+  `--bleach-mask` and `--cell-mask`. The mask container is documented in
+  `docs/roi-mask-format.md`.
 - Use `--fit-mode simplified_kang` for the Kang et al. per-curve half-time
   diffusion estimator, or `--fit-mode simplified_kang_global` for a pooled
   global fit of the simplified profile/recovery equations.
 - Reaction 1 and Reaction 2 backend fitters are available through
-  `--model reaction1` and `--model reaction2`; raw guide parity still needs
+  `--model reaction1` and `--model reaction2`; raw guide parity can now consume
   stored user-defined bleach/cell ROI masks for the ND2 workflows.
 
 ## Recent Applications

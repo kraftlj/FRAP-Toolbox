@@ -119,5 +119,5 @@ as `ReactionModel1.m`: `(F(t) - FRAP) / (t + sum(FRAP))`.
 
 | Workflow | Guide file(s) | Python refit status |
 | --- | --- | --- |
-| Reaction 1 | `test-data/Reaction 1/Venus_NCTransport_Reaction_Fit_Parameters.txt`, `*_FRAP_datasets.txt`, raw `Venus_*.nd2` files | Refit-ready from exported vectors; `Venus_1002.nd2` raw timestamps match the MATLAB time export; raw curve parity still needs stored user-defined bleach and cell ROI masks. |
-| Reaction 2 | `test-data/Reaction 2/Venus-Atg5_NCTransport_Reaction2_Fit_Parameters.txt`, raw `Venus-Atg5_*.nd2` files | Backend model is ported and raw ND2 timestamps load; guide curve refit awaits Reaction 2 FRAP vector export or stored ROI masks for the ND2 files. |
+| Reaction 1 | `test-data/Reaction 1/Venus_NCTransport_Reaction_Fit_Parameters.txt`, `*_FRAP_datasets.txt`, raw `Venus_*.nd2` files | Refit-ready from exported vectors; `Venus_1002.nd2` raw timestamps match the MATLAB time export; raw curve parity can now consume saved `bleach` and `cell` masks using `docs/roi-mask-format.md`. |
+| Reaction 2 | `test-data/Reaction 2/Venus-Atg5_NCTransport_Reaction2_Fit_Parameters.txt`, raw `Venus-Atg5_*.nd2` files | Backend model is ported and raw ND2 timestamps load; guide curve refit awaits Reaction 2 FRAP vector export or saved ROI masks for the ND2 files. |

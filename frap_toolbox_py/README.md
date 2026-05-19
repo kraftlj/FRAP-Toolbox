@@ -85,6 +85,8 @@ Useful flags:
   normalize by it.
 - `--model`: choose `diffusion`, `reaction1`, or `reaction2`. Reaction workflows can
   use `--cell-roi X Y RADIUS` when whole-cell normalization is enabled.
+- `--bleach-mask` and `--cell-mask`: load saved `.npz` ROI masks instead of circular
+  ROI parameters. See `docs/roi-mask-format.md` for the container contract.
 
 Diffusion output includes bleach depth, effective radius, diffusion coefficient, and
 mobile fraction. Reaction output includes the fitted reaction parameters and residual
