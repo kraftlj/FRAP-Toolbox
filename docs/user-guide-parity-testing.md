@@ -90,9 +90,9 @@ Figure S5. The Reaction 1 exported vectors are now enough to exercise the
 Python reaction fitter directly. The raw ND2 files are present for Reaction 1
 and Reaction 2, and tests now verify the readable ND2 timestamp metadata against
 the MATLAB-exported Reaction 1 time vector for `Venus_1002.nd2`. Raw-image
-reaction parity still needs stored bleach and whole-cell ROI masks or coordinate
-fixtures; Reaction 2 guide refitting still needs either its FRAP vector export
-or stored ROIs for the ND2 files. `Venus_1001.nd2` currently raises a legacy ND2
+reaction parity now has a durable `.npz` mask format for stored bleach and
+whole-cell ROI masks; Reaction 2 guide refitting still needs either its FRAP
+vector export or saved ROIs for the ND2 files. `Venus_1001.nd2` currently raises a legacy ND2
 metadata parser error in both BioIO and AICSImageIO paths, so Reaction 1 raw
 loader tests use the readable `Venus_1002.nd2` fixture.
 
@@ -293,8 +293,8 @@ semantic table equality is a better modernization target.
    of the normal suite.
 3. Convert the strict diffusion curve parity test from `xfail` to passing after
    circular ROI preprocessing is matched to MATLAB's exported FRAP curves.
-4. Add stored reaction ROI masks, then add Reaction 1 and Reaction 2 loader
-   parity tests against the exported `*_FRAP_datasets.txt` files. Reaction 2
-   still needs a FRAP vector export before curve-level guide parity can be
-   asserted.
+4. Save or reconstruct reaction ROI masks using the `.npz` contract in
+   `docs/roi-mask-format.md`, then add Reaction 1 and Reaction 2 loader parity
+   tests against the exported `*_FRAP_datasets.txt` files. Reaction 2 still
+   needs a FRAP vector export before curve-level guide parity can be asserted.
 5. Add model math parity tests before tightening optimizer parameter parity.

@@ -11,7 +11,7 @@ from .models.reaction import (
     default_reaction2_config,
     fit_reaction_model,
 )
-from .roi import CircularROI, adjacent_circle
+from .roi import CircularROI, adjacent_circle, load_roi_mask
 from .types import BasicInputs
 
 
@@ -20,6 +20,13 @@ def _build_mask_factory(roi: CircularROI):
         return roi.to_mask(shape)
 
     return factory
+
+
+def _load_mask_argument(path: Path, name: str):
+    try:
+        return load_roi_mask(path, name, allow_single=True)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"Could not load {name} ROI mask from {path}: {exc}") from exc
 
 
 def parse_arguments(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -31,8 +38,12 @@ def parse_arguments(argv: Optional[List[str]] = None) -> argparse.Namespace:
         nargs=3,
         type=float,
         metavar=("X", "Y", "RADIUS"),
-        required=True,
-        help="Circular ROI definition in pixels",
+        help="Circular bleach ROI definition in pixels",
+    )
+    parser.add_argument(
+        "--bleach-mask",
+        type=Path,
+        help="Saved .npz ROI mask file containing a 'bleach' mask",
     )
     parser.add_argument("--post-bleach-frame", type=int, default=21)
     parser.add_argument("--pre-bleach-count", type=int, default=10)
@@ -44,6 +55,11 @@ def parse_arguments(argv: Optional[List[str]] = None) -> argparse.Namespace:
         type=float,
         metavar=("X", "Y", "RADIUS"),
         help="Circular whole-cell ROI definition in pixels for reaction whole-cell normalization",
+    )
+    parser.add_argument(
+        "--cell-mask",
+        type=Path,
+        help="Saved .npz ROI mask file containing a 'cell' mask",
     )
     parser.add_argument("--use-adjacent-roi", action="store_true")
     parser.add_argument(
@@ -75,14 +91,35 @@ def parse_arguments(argv: Optional[List[str]] = None) -> argparse.Namespace:
 def main(argv: Optional[List[str]] = None) -> None:
     args = parse_arguments(argv)
 
-    bleach_roi = CircularROI(*args.roi)
-    mask_factory = _build_mask_factory(bleach_roi)
+    if args.roi is None and args.bleach_mask is None:
+        raise SystemExit("Provide either --roi X Y RADIUS or --bleach-mask PATH.")
+    if args.roi is not None and args.bleach_mask is not None:
+        raise SystemExit("Use either --roi or --bleach-mask for the bleach ROI, not both.")
+    if args.cell_roi is not None and args.cell_mask is not None:
+        raise SystemExit("Use either --cell-roi or --cell-mask for the whole-cell ROI, not both.")
+    if args.model == "diffusion" and args.bleach_mask is not None:
+        raise SystemExit("--bleach-mask currently supports reaction workflows; diffusion requires --roi geometry.")
+
+    bleach_roi = CircularROI(*args.roi) if args.roi is not None else None
+    if bleach_roi is not None:
+        mask_factory = _build_mask_factory(bleach_roi)
+        roi_mode = 1
+        roi_definition = args.roi
+    else:
+        mask_factory = _load_mask_argument(args.bleach_mask, "bleach")
+        roi_mode = 2
+        roi_definition = ()
+
     cell_factory = None
-    if args.cell_roi is not None:
+    if args.cell_mask is not None:
+        cell_factory = _load_mask_argument(args.cell_mask, "cell")
+    elif args.cell_roi is not None:
         cell_factory = _build_mask_factory(CircularROI(*args.cell_roi))
 
     adjacent_factory = None
     if args.use_adjacent_roi:
+        if bleach_roi is None:
+            raise SystemExit("--use-adjacent-roi currently requires circular --roi geometry.")
         adjacent_roi = adjacent_circle(bleach_roi, offset_factor=args.adjacent_offset)
         adjacent_factory = _build_mask_factory(adjacent_roi)
 
@@ -92,11 +129,11 @@ def main(argv: Optional[List[str]] = None) -> None:
     inputs = BasicInputs(
         file_paths=[path.resolve() for path in args.files],
         model_index=model_index,
-        roi_mode=1,
+        roi_mode=roi_mode,
         normalize_by_cell=args.normalize_by_cell,
         background_intensity=args.background,
         post_bleach_frame=post_bleach_index,
-        roi_definition=args.roi,
+        roi_definition=roi_definition,
         pre_bleach_frame_count=args.pre_bleach_count,
         use_adjacent_roi=args.use_adjacent_roi,
     )

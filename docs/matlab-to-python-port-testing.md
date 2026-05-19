@@ -154,6 +154,7 @@ photodecay correction from normalized FRAP, now gives:
   why diffusion estimates can differ between MATLAB and Python runs.
 - Continue improving strict raw-loader parity, especially circular ROI
   rasterization and normalized-vector parity from the original LSM files.
-- Add stored user-defined bleach/cell ROI masks for Reaction 1 and Reaction 2
-  so the raw ND2 workflows can be tested end to end; the raw files are now
-  available, but the manually drawn MATLAB analysis masks are not.
+- Use `docs/roi-mask-format.md` to save or reconstruct user-defined bleach/cell
+  ROI masks for Reaction 1 and Reaction 2 so the raw ND2 workflows can be
+  tested end to end; the raw files are now available, but the manually drawn
+  MATLAB analysis masks are not.
