@@ -30,6 +30,19 @@ FRAP-Toolbox is software for the analysis of Fluorescence Recovery After Photobl
 - Guidance for developers who want to extend the toolbox.
 - Examples of recent scientific applications that rely on the included models.
 
+### Modern Python app
+The repository now includes an in-progress Python port with a local Streamlit app and CLI.
+For ND2-based local analysis, create a virtual environment and install:
+
+```bash
+python -m pip install -e ".[app-nd2,test]"
+frap-toolbox-app
+```
+
+The app can select diffusion, Reaction 1, or Reaction 2 models, run circular numeric ROI
+analyses, and load saved binary ROI masks. See `frap_toolbox_py/README.md` and
+`docs/app-deployment.md` for the current app workflow and remaining hand-drawn ROI plan.
+
 ## About
 ### History
 FRAP-Toolbox was developed to make quantitative FRAP analysis accessible to the broader research community. The project grew out of a collaboration between Anne Kenworthy's research group and biomathematicians led by Emmanuele DiBenedetto, funded by the National Science Foundation.
@@ -359,12 +372,13 @@ FRAP-Toolbox displays warning dialogs when it detects potential problems, such a
 Interested in contributing or porting FRAP-Toolbox to Python? Reach out to the team and explore the source code on GitHub: <https://github.com/kraftlj/FRAP-Toolbox>.
 
 ### Python port (experimental)
-- The Python implementation lives under `frap_toolbox_py/` and currently supports the diffusion workflow.
+- The Python implementation lives under `frap_toolbox_py/` and supports diffusion,
+  Reaction 1, and Reaction 2 workflows.
 - The preferred image I/O layer is BioIO with the `bioio-tifffile` plugin. Optional extras add ND2, Bio-Formats, and legacy AICSImageIO readers.
 - Large local microscopy fixtures belong in ignored `test-data/`; exploratory porting scripts belong in ignored `scratch/`.
-- Install the modern app stack with Python 3.10+:
+- Install the modern app stack with Python 3.10+. For ND2 files, prefer:
    ```bash
-   python -m pip install -e ".[app,test]"
+   python -m pip install -e ".[app-nd2,test]"
    ```
 - Launch the local browser app:
    ```bash
@@ -377,7 +391,7 @@ Interested in contributing or porting FRAP-Toolbox to Python? Reach out to the t
 - Use `--fit-mode simplified_kang` for the Kang et al. per-curve half-time
   diffusion estimator, or `--fit-mode simplified_kang_global` for a pooled
   global fit of the simplified profile/recovery equations.
-- Reaction 1 and Reaction 2 backend fitters are available through
+- Reaction 1 and Reaction 2 fitters are available through the app and through
   `--model reaction1` and `--model reaction2`; raw guide parity still needs
   stored user-defined bleach/cell ROI masks for the ND2 workflows.
 

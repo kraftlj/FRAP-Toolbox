@@ -43,6 +43,16 @@ test = [
 app = [
   "streamlit>=1.51"
 ]
+app-nd2 = [
+  "streamlit>=1.51",
+  "bioio-nd2>=1.7"
+]
+app-full = [
+  "streamlit>=1.51",
+  "bioio-nd2>=1.7",
+  "bioio-bioformats>=2.0",
+  "aicsimageio>=4.10"
+]
 bioformats = [
   "bioio-bioformats>=2.0"
 ]

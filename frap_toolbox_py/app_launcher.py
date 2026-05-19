@@ -10,7 +10,8 @@ def main() -> None:
     except ImportError as exc:
         raise SystemExit(
             "Streamlit is not installed. Install the app extra with "
-            '`python -m pip install -e ".[app]"`.'
+            '`python -m pip install -e ".[app]"`. For local ND2 files, use '
+            '`python -m pip install -e ".[app-nd2]"`.'
         ) from exc
 
     app_path = Path(__file__).with_name("app.py")

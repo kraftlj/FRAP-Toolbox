@@ -1,8 +1,8 @@
 # Running the FRAP-Toolbox Python Port
 
-This guide explains how to set up a Python environment and run the diffusion workflow
-implemented in `frap_toolbox_py`. The steps assume macOS or Linux with bash, but only the
-activation command differs on Windows.
+This guide explains how to set up a Python environment and run the modern FRAP-Toolbox
+app and CLI implemented in `frap_toolbox_py`. The steps assume macOS or Linux with bash,
+but only the activation command differs on Windows.
 
 ## 1. Prerequisites
 - Python 3.10 or newer
@@ -28,14 +28,29 @@ Optional extras:
 - `pip install -e ".[nd2]"` for the BioIO ND2 reader.
 - `pip install -e ".[bioformats]"` for the BioIO Bio-Formats reader.
 - `pip install -e ".[legacy-io]"` for the older AICSImageIO fallback.
+- `pip install -e ".[app-nd2,test]"` for the most common local app setup with ND2 files.
+- `pip install -e ".[app-full,test]"` for Streamlit plus ND2, Bio-Formats, and legacy I/O fallback.
 
 ## 4. Run the local app
 ```bash
 frap-toolbox-app
 ```
 
-The app opens a local Streamlit browser interface for selecting datasets, entering
-diffusion ROI parameters, running the fit, and reviewing diagnostic plots.
+The app opens a local Streamlit browser interface for selecting datasets, choosing
+`diffusion`, `reaction1`, or `reaction2`, entering ROI parameters, running the fit, and
+reviewing diagnostic plots.
+
+Current ROI options:
+- Circular numeric bleach ROI, matching the CLI `--roi X Y RADIUS` input.
+- Optional circular whole-cell ROI when whole-cell normalization is enabled.
+- Saved mask upload for bleach and whole-cell ROIs. The app accepts `.npy`, `.npz`,
+  `.csv`, `.tsv`, and whitespace-delimited `.txt` masks. For `.npz`, use an array named
+  `mask` or a file containing exactly one array.
+
+Hand-drawn ROI support is expected to land as a small workflow on top of saved masks:
+draw bleach and cell ROIs in an image preview, rasterize them once, save the masks, and
+reuse those masks for repeatable fitting. Until that branch is merged, users can export
+binary masks from another image tool and load them through the saved-mask upload controls.
 
 ## 5. Recommended test dataset parameters
 The original MATLAB user guide documents parameters for the Zeiss LSM diffusion
