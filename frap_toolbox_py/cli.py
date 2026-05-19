@@ -4,8 +4,13 @@ import argparse
 from pathlib import Path
 from typing import List, Optional
 
-from .data.loading import load_diffusion_datasets
+from .data.loading import load_diffusion_datasets, load_reaction_datasets
 from .models.diffusion import default_diffusion_config, fit_diffusion_model
+from .models.reaction import (
+    default_reaction1_config,
+    default_reaction2_config,
+    fit_reaction_model,
+)
 from .roi import CircularROI, adjacent_circle
 from .types import BasicInputs
 
@@ -20,7 +25,7 @@ def _build_mask_factory(roi: CircularROI):
 def parse_arguments(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="FRAP-Toolbox Python port")
     parser.add_argument("files", nargs="+", type=Path, help="Paths to FRAP image files")
-    parser.add_argument("--model", choices=["diffusion"], default="diffusion")
+    parser.add_argument("--model", choices=["diffusion", "reaction1", "reaction2"], default="diffusion")
     parser.add_argument(
         "--roi",
         nargs=3,
@@ -33,12 +38,36 @@ def parse_arguments(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--pre-bleach-count", type=int, default=10)
     parser.add_argument("--background", type=float, default=0.0)
     parser.add_argument("--normalize-by-cell", action="store_true")
+    parser.add_argument(
+        "--cell-roi",
+        nargs=3,
+        type=float,
+        metavar=("X", "Y", "RADIUS"),
+        help="Circular whole-cell ROI definition in pixels for reaction whole-cell normalization",
+    )
     parser.add_argument("--use-adjacent-roi", action="store_true")
     parser.add_argument(
         "--adjacent-offset",
         type=float,
         default=2.5,
         help="Offset multiplier for adjacent circular ROI (used with --use-adjacent-roi)",
+    )
+    parser.add_argument(
+        "--fit-mode",
+        choices=[
+            "global",
+            "individual",
+            "average_curve",
+            "simplified_kang",
+            "simplified_kang_global",
+        ],
+        default="global",
+        help=(
+            "Diffusion fit strategy. 'global' concatenates per-curve residuals without averaging curves; "
+            "'simplified_kang' uses the Kang half-time estimator; 'simplified_kang_global' fits the "
+            "simplified recovery equation to pooled curves. For reaction models, 'individual' and "
+            "'average_curve' select per-curve or averaged-curve fitting."
+        ),
     )
     return parser.parse_args(argv)
 
@@ -48,6 +77,9 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     bleach_roi = CircularROI(*args.roi)
     mask_factory = _build_mask_factory(bleach_roi)
+    cell_factory = None
+    if args.cell_roi is not None:
+        cell_factory = _build_mask_factory(CircularROI(*args.cell_roi))
 
     adjacent_factory = None
     if args.use_adjacent_roi:
@@ -56,9 +88,10 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     post_bleach_index = max(args.post_bleach_frame - 1, 0)
 
+    model_index = {"diffusion": 1, "reaction1": 2, "reaction2": 3}[args.model]
     inputs = BasicInputs(
         file_paths=[path.resolve() for path in args.files],
-        model_index=1,
+        model_index=model_index,
         roi_mode=1,
         normalize_by_cell=args.normalize_by_cell,
         background_intensity=args.background,
@@ -67,6 +100,42 @@ def main(argv: Optional[List[str]] = None) -> None:
         pre_bleach_frame_count=args.pre_bleach_count,
         use_adjacent_roi=args.use_adjacent_roi,
     )
+
+    if args.model in {"reaction1", "reaction2"}:
+        datasets = load_reaction_datasets(
+            inputs,
+            bleach_roi=mask_factory,
+            cell_roi=cell_factory,
+        )
+        if not datasets:
+            raise SystemExit("No datasets loaded.")
+
+        if args.model == "reaction1":
+            config = default_reaction1_config(
+                frap_length=len(datasets[0].norm_frap),
+                post_bleach_frame=inputs.post_bleach_frame,
+            )
+            model_order = 1
+        else:
+            config = default_reaction2_config(
+                frap_length=len(datasets[0].norm_frap),
+                post_bleach_frame=inputs.post_bleach_frame,
+            )
+            model_order = 2
+
+        if args.fit_mode == "individual":
+            config.fit_averaged_data = False
+        elif args.fit_mode == "average_curve":
+            config.fit_averaged_data = True
+
+        result = fit_reaction_model(datasets, inputs, config, model_order=model_order)
+
+        print(f"Reaction {model_order} model fit results:")
+        for name, value in result.parameters.items():
+            print(f"  {name}: {value:.4g}")
+        print(f"  Photodecay rate: {result.decay_rate:.4g}")
+        print(f"  Sum of squared residuals: {result.sum_squared_residuals:.4g}")
+        return
 
     datasets = load_diffusion_datasets(
         inputs,
@@ -82,12 +151,15 @@ def main(argv: Optional[List[str]] = None) -> None:
         profile_length=len(datasets[0].radius),
         post_bleach_frame=inputs.post_bleach_frame,
     )
+    config.fit_mode = args.fit_mode
 
     result = fit_diffusion_model(datasets, inputs, config)
 
     print("Diffusion model fit results:")
     print(f"  Bleach depth (k): {result.k:.4g}")
     print(f"  Effective radius (re): {result.r_effective:.4g}")
+    if result.half_time is not None:
+        print(f"  Half time (tau_1/2): {result.half_time:.4g}")
     print(f"  Diffusion coefficient (D): {result.diffusion_coefficient:.4g}")
     print(f"  Mobile fraction (MF): {result.mobile_fraction:.4g}")
     if result.corrected_mobile_fraction is not None:

@@ -86,8 +86,15 @@ The guide's second reaction example uses:
   - `Venus-Atg5_NCTransport_Reaction2_Fit_Parameters.txt`
 
 The reaction guide depends on manually drawn bleach and whole-cell ROIs shown in
-Figure S5. To make those tests automated, the modernization needs stored ROI
-masks or coordinate fixtures for the two reaction workflows.
+Figure S5. The Reaction 1 exported vectors are now enough to exercise the
+Python reaction fitter directly. The raw ND2 files are present for Reaction 1
+and Reaction 2, and tests now verify the readable ND2 timestamp metadata against
+the MATLAB-exported Reaction 1 time vector for `Venus_1002.nd2`. Raw-image
+reaction parity still needs stored bleach and whole-cell ROI masks or coordinate
+fixtures; Reaction 2 guide refitting still needs either its FRAP vector export
+or stored ROIs for the ND2 files. `Venus_1001.nd2` currently raises a legacy ND2
+metadata parser error in both BioIO and AICSImageIO paths, so Reaction 1 raw
+loader tests use the readable `Venus_1002.nd2` fixture.
 
 ## Test Layers
 
@@ -190,30 +197,69 @@ curves and fit parameters directly:
 This isolates model equation fidelity from reader and optimizer differences.
 The automated parity suite now includes a guide-level check that drives the
 legacy diffusion fitter with MATLAB-exported vectors and reproduces the
-`Venus_Cytoplasm_1.lsm` fit parameters from Table S2. The full Venus Cytoplasm
-table is still an active optimizer-parity target: a direct landscape check shows
-that several guide D values are historical early-stopping points, not the
-weighted least-squares basin floor.
+`Venus_Cytoplasm_1.lsm` fit parameters from Table S2. The suite now also drives
+both diffusion export tables through the legacy photodecay and optimizer path,
+matching the published D/MF tables to guide-level tolerance while preserving a
+direct landscape check showing that several guide D values are historical
+early-stopping points, not the weighted least-squares basin floor.
+
+For the modern app path, the diffusion fitter now distinguishes five fit modes:
+`individual`, `average_curve`, `global`, `simplified_kang`, and
+`simplified_kang_global`. The `global` mode is true global fitting: it estimates
+one shared bleach/profile geometry from pooled post-bleach profiles, then
+minimizes one concatenated residual vector across all FRAP curves with shared
+`D` and `MF`. The averaged FRAP curve is still evaluated for plots and
+summaries, but it is not the optimization target unless `average_curve` is
+selected explicitly. The `simplified_kang` mode implements the Kang et al.
+confocal half-time estimator `D = (rn^2 + re^2) / (8 * tau_1/2)` using each
+corrected FRAP curve's linearly interpolated half-recovery time and an
+effective bleach radius fit with the simplified confocal post-bleach profile
+equation `1 - K * exp(-2r^2 / re^2)`. The `simplified_kang_global` mode uses
+the same simplified profile/recovery equations, but fits shared `K`, `re`, `D`,
+and `MF` against pooled profile and FRAP residuals.
 
 ### 5. Historical Optimizer Mode
 
 The diffusion optimizer can produce different `D` values when SciPy continues
 past MATLAB's historical stopping point. The Python port exposes a
-`legacy_matlab` optimizer mode for the diffusion fitter, but the full historical
-stopping path is not yet reproduced across every Venus Cytoplasm dataset. Tests
-for parameter tables should remain split into two modes:
+`legacy_matlab` optimizer mode for the diffusion fitter. Tests for parameter
+tables should remain split into two modes:
 
 - `legacy_matlab`: emulate MATLAB-era `lsqcurvefit` stopping behavior and
   converge toward the guide's published parameter tables. The current hard
-  passing check covers `Venus_Cytoplasm_1.lsm`; the broader table should become
-  hard-passing once the old solver termination path is matched.
+  passing checks cover `Venus_Cytoplasm_1.lsm` and both Venus/Venus-ATG5
+  diffusion tables through the full exported-vector pipeline.
 - `modern`: use stricter SciPy defaults and assert lower residuals or stable
-  regression values documented for the new app.
+  regression values documented for the new app. The current modern global-fit
+  regression checks both Venus and Venus-ATG5 guide exports and asserts that the
+  reported SSE is the sum of per-curve residual sums, not an averaged-curve SSE.
 
 The user-facing app should make this distinction explicit if both modes are
 offered.
 
-### 6. Output Writer Parity
+### 6. Reaction Model Parity
+
+The Python port now includes Reaction 1 and Reaction 2 backend fitters. Reaction
+1 reproduces the guide's exported `Venus_NCTransport` vectors through the
+MATLAB-compatible optimizer path:
+
+- Single-component model: `F(t) = a - b * exp(-c * t)`.
+- Optimization residual: `(F(t) - FRAP) / (t + sum(FRAP))`.
+- Whole-cell normalization skips photodecay correction, matching
+  `Figure_GUI_Reaction.m`.
+- Averaged output follows the MATLAB script's index-wise curve average and
+  first dataset time vector; it does not interpolate timestamp differences.
+
+Reaction 2 backend support is also present:
+
+- Two-component model: `F(t) = a - b * exp(-c * t) - d * exp(-f * t)`.
+- Optimization residual follows `ReactionModel2.m`, which is unweighted even
+  though the exported diagnostic residuals and SS are weighted.
+- The current archive lacks a Reaction 2 FRAP vector export, so tests cover the
+  equation/fitting behavior synthetically, verify raw ND2 timestamp loading for
+  both Reaction 2 files, and keep the guide parameter-table contract intact.
+
+### 7. Output Writer Parity
 
 When exporters are implemented in Python, tests should compare the public file
 contract:
@@ -248,5 +294,7 @@ semantic table equality is a better modernization target.
 3. Convert the strict diffusion curve parity test from `xfail` to passing after
    circular ROI preprocessing is matched to MATLAB's exported FRAP curves.
 4. Add stored reaction ROI masks, then add Reaction 1 and Reaction 2 loader
-   parity tests against the exported `*_FRAP_datasets.txt` files.
+   parity tests against the exported `*_FRAP_datasets.txt` files. Reaction 2
+   still needs a FRAP vector export before curve-level guide parity can be
+   asserted.
 5. Add model math parity tests before tightening optimizer parameter parity.

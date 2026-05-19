@@ -374,7 +374,12 @@ Interested in contributing or porting FRAP-Toolbox to Python? Reach out to the t
    ```bash
    frap-toolbox /path/to/dataset1.lsm --roi 256 23 9 --post-bleach-frame 21
    ```
-- Reaction models, interactive ROI drawing, and export parity are the next major porting targets.
+- Use `--fit-mode simplified_kang` for the Kang et al. per-curve half-time
+  diffusion estimator, or `--fit-mode simplified_kang_global` for a pooled
+  global fit of the simplified profile/recovery equations.
+- Reaction 1 and Reaction 2 backend fitters are available through
+  `--model reaction1` and `--model reaction2`; raw guide parity still needs
+  stored user-defined bleach/cell ROI masks for the ND2 workflows.
 
 ## Recent Applications
 Below are recent publications that applied FRAP-Toolbox algorithms. Each image is available in the `Images/` directory.
@@ -423,4 +428,3 @@ Phone: 615.322.6615
 
 - Support: [kraftlj@gmail.com](mailto:kraftlj@gmail.com)
 - Correspondence: [anne.kenworthy@vanderbilt.edu](mailto:anne.kenworthy@vanderbilt.edu)
-

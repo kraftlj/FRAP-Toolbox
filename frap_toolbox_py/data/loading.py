@@ -88,8 +88,43 @@ def _open_image(path: Path) -> Tuple[Any, str]:
     )
 
 
-def _extract_time_vector(image: Any) -> Tuple[np.ndarray, str]:
-    metadata = image.metadata
+def _seconds(value: Any, unit: Any = None) -> float:
+    if hasattr(value, "total_seconds"):
+        return float(value.total_seconds())
+
+    numeric = float(value)
+    if unit is None:
+        return numeric
+
+    unit_name = str(getattr(unit, "name", "") or "").lower()
+    unit_value = str(getattr(unit, "value", unit) or "").lower()
+    unit_text = f"{unit_name} {unit_value}"
+    if "nanosecond" in unit_text or unit_value == "ns":
+        return numeric * 1e-9
+    if "microsecond" in unit_text or unit_value == "us":
+        return numeric * 1e-6
+    if "millisecond" in unit_text or unit_value == "ms":
+        return numeric * 1e-3
+    if "minute" in unit_text or unit_value == "min":
+        return numeric * 60.0
+    if "hour" in unit_text or unit_value == "h":
+        return numeric * 3600.0
+    return numeric
+
+
+def _image_time_length(image: Any, frame_count: Optional[int]) -> int:
+    if frame_count is not None:
+        return frame_count
+    return image.dims.T or 1
+
+
+def _extract_time_vector(image: Any, frame_count: Optional[int] = None) -> Tuple[np.ndarray, str]:
+    try:
+        metadata = image.metadata
+    except Exception as exc:
+        LOGGER.debug("Could not parse image metadata for timestamps: %s", exc)
+        return np.arange(_image_time_length(image, frame_count), dtype=float), "synthetic_linear"
+
     ome = None
     if isinstance(metadata, str):
         try:
@@ -100,8 +135,7 @@ def _extract_time_vector(image: Any) -> Tuple[np.ndarray, str]:
         ome = metadata
 
     if ome is None:
-        frame_count = image.dims.T or 1
-        return np.arange(frame_count, dtype=float), "synthetic_linear"
+        return np.arange(_image_time_length(image, frame_count), dtype=float), "synthetic_linear"
 
     pixels = ome.images[0].pixels
     planes = pixels.planes
@@ -112,24 +146,34 @@ def _extract_time_vector(image: Any) -> Tuple[np.ndarray, str]:
             continue
         key = plane.the_c, plane.the_z, plane.the_t
         if key[2] not in by_t:
-            by_t[key[2]] = plane.delta_t
+            by_t[key[2]] = (plane.delta_t, getattr(plane, "delta_t_unit", None))
     if by_t:
-        for t_index in range(image.dims.T):
-            delta = by_t.get(t_index)
-            if delta is None:
+        for t_index in range(_image_time_length(image, frame_count)):
+            entry = by_t.get(t_index)
+            if entry is None:
                 times.append(times[-1] if times else 0.0)
             else:
-                times.append(delta.total_seconds())
+                delta, unit = entry
+                times.append(_seconds(delta, unit))
         return np.asarray(times, dtype=float), "ome_planes"
 
     exposure_time = pixels.time_increment
     if exposure_time is not None:
+        count = _image_time_length(image, frame_count)
         return (
-            np.linspace(0.0, exposure_time * (image.dims.T - 1), image.dims.T),
+            np.linspace(
+                0.0,
+                _seconds(
+                    exposure_time,
+                    getattr(pixels, "time_increment_unit", None),
+                )
+                * (count - 1),
+                count,
+            ),
             "ome_time_increment",
         )
 
-    return np.arange(image.dims.T, dtype=float), "synthetic_linear"
+    return np.arange(_image_time_length(image, frame_count), dtype=float), "synthetic_linear"
 
 
 def _ensure_microns(value: Optional[Union[float, int]]) -> Optional[float]:
@@ -222,7 +266,7 @@ def load_diffusion_datasets(
         frame_count = stack.shape[0]
         lsm_voxel_x, lsm_voxel_y, lsm_times = _read_lsm_metadata(path, frame_count)
 
-        times, time_source = _extract_time_vector(image)
+        times, time_source = _extract_time_vector(image, frame_count)
         times = np.asarray(times, dtype=float)
 
         if lsm_times is not None:
@@ -349,5 +393,95 @@ def load_diffusion_datasets(
             },
         )
         datasets.append(dataset)
+
+    return datasets
+
+
+def load_reaction_datasets(
+    inputs: BasicInputs,
+    bleach_roi: Union[MaskFactory, np.ndarray],
+    cell_roi: Optional[Union[MaskFactory, np.ndarray]] = None,
+) -> List[FRAPDataset]:
+    """Load FRAP datasets for the reaction models."""
+
+    datasets: List[FRAPDataset] = []
+    for file_path in inputs.file_paths:
+        path = Path(file_path)
+        image, reader_backend = _open_image(path)
+        LOGGER.debug("Loaded %s with %s.", path, reader_backend)
+        raw_stack = image.get_image_data("TYX", C=0, Z=0)
+        stack = np.asarray(raw_stack, dtype=float)
+        if stack.ndim != 3:
+            raise ValueError("Expected stack with dimensions (T, Y, X).")
+
+        frame_count = stack.shape[0]
+        lsm_voxel_x, lsm_voxel_y, lsm_times = _read_lsm_metadata(path, frame_count)
+        times, time_source = _extract_time_vector(image, frame_count)
+        times = np.asarray(times, dtype=float)
+
+        if lsm_times is not None:
+            times = lsm_times
+            time_source = "lsm_metadata"
+
+        if len(times) != frame_count:
+            if len(times) == 1:
+                times = np.linspace(0, times[0], frame_count)
+                time_source = f"{time_source}_expanded"
+            else:
+                raise ValueError("Mismatch between time metadata and stack length.")
+
+        image_shape = stack.shape[1:]
+        bleach_mask = _make_mask(bleach_roi, image_shape)
+        if bleach_mask is None:
+            raise ValueError("Bleach ROI must be provided for reaction loading.")
+
+        cell_mask = _make_mask(cell_roi, image_shape)
+        frap_series = stack[:, bleach_mask].mean(axis=1) - inputs.background_intensity
+
+        cell_series: Optional[np.ndarray] = None
+        if inputs.normalize_by_cell:
+            if cell_mask is None:
+                raise ValueError("Cell ROI must be provided when whole-cell normalization is enabled.")
+            cell_series = stack[:, cell_mask].mean(axis=1)
+
+        norm_frap, _, _ = normalize_frap(
+            frap_series,
+            cell_series,
+            inputs.post_bleach_frame,
+            inputs.pre_bleach_frame_count,
+            inputs.normalize_by_cell,
+        )
+
+        pixel_sizes = image.physical_pixel_sizes
+        ome_voxel_x = _ensure_microns(float(pixel_sizes.X)) if pixel_sizes.X is not None else None
+        ome_voxel_y = _ensure_microns(float(pixel_sizes.Y)) if pixel_sizes.Y is not None else None
+        voxel_x = lsm_voxel_x if lsm_voxel_x is not None else ome_voxel_x
+        voxel_y = lsm_voxel_y if lsm_voxel_y is not None else ome_voxel_y
+
+        if lsm_voxel_x is not None or lsm_voxel_y is not None:
+            voxel_source = "lsm_metadata"
+        elif ome_voxel_x is not None or ome_voxel_y is not None:
+            voxel_source = "ome_metadata"
+        else:
+            voxel_source = "unspecified"
+
+        datasets.append(
+            FRAPDataset(
+                name=path.name,
+                time=times,
+                frap=frap_series,
+                norm_frap=norm_frap,
+                corrected_frap=norm_frap.copy(),
+                cell=cell_series,
+                voxel_size_x=voxel_x,
+                voxel_size_y=voxel_y,
+                metadata={
+                    "source_path": str(path),
+                    "reader_backend": reader_backend,
+                    "time_source": time_source,
+                    "voxel_source": voxel_source,
+                },
+            )
+        )
 
     return datasets

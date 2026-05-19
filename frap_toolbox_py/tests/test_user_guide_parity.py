@@ -6,10 +6,11 @@ import warnings
 import numpy as np
 import pytest
 
-from frap_toolbox_py.data.loading import load_diffusion_datasets
+from frap_toolbox_py.data.loading import _extract_time_vector, _open_image, load_diffusion_datasets
 from frap_toolbox_py.models.diffusion import fit_diffusion_model, kang_frap
+from frap_toolbox_py.models.reaction import fit_reaction_model
 from frap_toolbox_py.roi import CircularROI, adjacent_circle
-from frap_toolbox_py.types import BasicInputs, DiffusionFitConfig, FitBounds, FRAPDataset
+from frap_toolbox_py.types import BasicInputs, DiffusionFitConfig, FitBounds, FRAPDataset, ReactionFitConfig
 
 
 FIXTURE_ROOT = Path("test-data")
@@ -53,6 +54,13 @@ def _read_vector_export(path: Path) -> dict[tuple[str, str], np.ndarray]:
         values = [float(cell) for cell in cells[2:] if cell.strip()]
         vectors[(filename, label)] = np.asarray(values, dtype=float)
     return vectors
+
+
+def _open_image_or_skip(path: Path):
+    try:
+        return _open_image(path)
+    except ImportError as exc:
+        pytest.skip(f"Microscopy reader for {path.name} is not installed: {exc}")
 
 
 def _load_venus_cytoplasm_1():
@@ -143,6 +151,7 @@ def _load_venus_cytoplasm_1_with_inferred_bleach_mask():
 def _guide_diffusion_config(
     frap_exports: dict[tuple[str, str], np.ndarray],
     profile_exports: dict[tuple[str, str], np.ndarray],
+    first_name: str = VENUS_CYTO_1,
 ) -> DiffusionFitConfig:
     return DiffusionFitConfig(
         k=FitBounds(1.0, 0.0, np.inf, "Adjustable"),
@@ -150,31 +159,41 @@ def _guide_diffusion_config(
         diffusion_coefficient=FitBounds(10.0, 0.0, np.inf, "Adjustable"),
         mobile_fraction=FitBounds(1.0, 0.0, 2.0, "Adjustable"),
         decay_rate=FitBounds(1e-3, 0.0, np.inf, "Adjustable"),
-        profile_range=(0, len(profile_exports[(VENUS_CYTO_1, "Distance")])),
-        frap_range=(POST_BLEACH_INDEX, len(frap_exports[(VENUS_CYTO_1, "Time")])),
-        decay_fit_range=(499, 599),
+        profile_range=(0, len(profile_exports[(first_name, "Distance")])),
+        frap_range=(POST_BLEACH_INDEX, len(frap_exports[(first_name, "Time")])),
+        decay_fit_range=(499, 600),
         mobile_fraction_range=(539, 600),
         fit_averaged_data=False,
         optimizer_mode="legacy_matlab",
     )
 
 
-def _build_venus_cytoplasm_export_datasets(
+def _build_diffusion_export_datasets(
     params: dict[str, dict[str, float]],
     frap_exports: dict[tuple[str, str], np.ndarray],
     profile_exports: dict[tuple[str, str], np.ndarray],
+    *,
+    use_corrected_as_normalized: bool = False,
 ) -> list[FRAPDataset]:
     datasets = []
-    names = sorted(name for name in params if name.endswith(".lsm"))
+    names = sorted(
+        (name for name in params if name.endswith(".lsm")),
+        key=lambda name: int(name.rsplit("_", 1)[1].split(".")[0]),
+    )
     for name in names:
         time = frap_exports[(name, "Time")]
+        norm_frap = (
+            frap_exports[(name, "Corrected FRAP")].copy()
+            if use_corrected_as_normalized
+            else frap_exports[(name, "Normalized FRAP")]
+        )
         datasets.append(
             FRAPDataset(
                 name=name,
                 time=time - time[0],
                 frap=frap_exports[(name, "Raw FRAP")],
-                norm_frap=frap_exports[(name, "Normalized FRAP")],
-                corrected_frap=frap_exports[(name, "Normalized FRAP")].copy(),
+                norm_frap=norm_frap,
+                corrected_frap=norm_frap.copy(),
                 corrected_mobile_fraction=params[name]["MF Corrected"],
                 voxel_size_x=0.10986328426900892,
                 voxel_size_y=0.10986328426900892,
@@ -183,6 +202,72 @@ def _build_venus_cytoplasm_export_datasets(
             )
         )
     return datasets
+
+
+def _build_venus_cytoplasm_export_datasets(
+    params: dict[str, dict[str, float]],
+    frap_exports: dict[tuple[str, str], np.ndarray],
+    profile_exports: dict[tuple[str, str], np.ndarray],
+) -> list[FRAPDataset]:
+    return _build_diffusion_export_datasets(params, frap_exports, profile_exports)
+
+
+def _reference_diffusion_inputs() -> BasicInputs:
+    return BasicInputs(
+        file_paths=[Path("reference-export")],
+        model_index=1,
+        roi_mode=1,
+        normalize_by_cell=False,
+        background_intensity=0.0,
+        post_bleach_frame=POST_BLEACH_INDEX,
+        roi_definition=(256.0, 23.0, 9.0),
+        pre_bleach_frame_count=10,
+        use_adjacent_roi=True,
+    )
+
+
+def _reference_reaction_inputs(model_index: int = 2) -> BasicInputs:
+    return BasicInputs(
+        file_paths=[Path("reference-export")],
+        model_index=model_index,
+        roi_mode=2,
+        normalize_by_cell=True,
+        background_intensity=0.0,
+        post_bleach_frame=5,
+        roi_definition=(),
+        pre_bleach_frame_count=5,
+        use_adjacent_roi=False,
+    )
+
+
+def _guide_reaction1_config() -> ReactionFitConfig:
+    return ReactionFitConfig(
+        a=FitBounds(1.0, 0.0, np.inf, "Adjustable"),
+        b=FitBounds(1.0, 0.0, np.inf, "Adjustable"),
+        c=FitBounds(1.0, 0.0, np.inf, "Adjustable"),
+        decay_rate=FitBounds(1e-3, 0.0, np.inf, "Adjustable"),
+        frap_range=(5, 130),
+        decay_fit_range=(134, 185),
+        fit_averaged_data=False,
+        optimizer_mode="legacy_matlab",
+    )
+
+
+def _build_reaction_export_datasets(
+    frap_exports: dict[tuple[str, str], np.ndarray],
+    names: list[str],
+) -> list[FRAPDataset]:
+    return [
+        FRAPDataset(
+            name=name,
+            time=frap_exports[(name, "Time")],
+            frap=frap_exports[(name, "Raw FRAP")],
+            cell=frap_exports[(name, "Cell")],
+            norm_frap=frap_exports[(name, "Normalized FRAP")],
+            corrected_frap=frap_exports[(name, "Corrected FRAP")].copy(),
+        )
+        for name in names
+    ]
 
 
 def test_user_guide_reference_parameter_tables_are_available():
@@ -216,6 +301,98 @@ def test_user_guide_reference_parameter_tables_are_available():
     assert np.isnan(reaction2["Venus-Atg5_1003.nd2"]["f"])
     assert reaction2["Avg."]["a"] == pytest.approx(1.4704)
     assert reaction2["Avg."]["f"] == pytest.approx(0.000442516)
+
+
+def test_reaction1_nd2_time_metadata_matches_matlab_export_for_venus_1002():
+    frap_export = REACTION1_ROOT / "Venus_NCTransport_Reaction_FRAP_datasets.txt"
+    raw_path = REACTION1_ROOT / "Venus_1002.nd2"
+    _require_user_guide_fixtures(frap_export, raw_path)
+
+    frap_exports = _read_vector_export(frap_export)
+    image, _ = _open_image_or_skip(raw_path)
+    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0), dtype=float)
+    times, time_source = _extract_time_vector(image, stack.shape[0])
+
+    assert stack.shape == (185, 512, 512)
+    assert time_source == "ome_planes"
+    np.testing.assert_allclose(
+        times - times[5],
+        frap_exports[("Venus_1002.nd2", "Time")],
+        rtol=0,
+        atol=1e-6,
+    )
+
+
+@pytest.mark.parametrize("raw_name", ["Venus-Atg5_1002.nd2", "Venus-Atg5_1003.nd2"])
+def test_reaction2_nd2_time_metadata_uses_seconds_after_bleach(raw_name: str):
+    raw_path = REACTION2_ROOT / raw_name
+    _require_user_guide_fixtures(raw_path)
+
+    image, _ = _open_image_or_skip(raw_path)
+    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0), dtype=float)
+    times, time_source = _extract_time_vector(image, stack.shape[0])
+    bleach_relative_time = times - times[5]
+
+    assert stack.shape == (185, 512, 512)
+    assert time_source == "ome_planes"
+    assert bleach_relative_time[5] == pytest.approx(0.0, abs=1e-12)
+    assert bleach_relative_time[6] == pytest.approx(10.0, abs=0.1)
+    assert bleach_relative_time[-1] == pytest.approx(1790.0, abs=0.1)
+
+
+def test_reaction1_legacy_fit_reproduces_user_guide_exported_vectors():
+    params_path = REACTION1_ROOT / "Venus_NCTransport_Reaction_Fit_Parameters.txt"
+    frap_export = REACTION1_ROOT / "Venus_NCTransport_Reaction_FRAP_datasets.txt"
+    _require_user_guide_fixtures(params_path, frap_export)
+
+    params = _read_parameter_table(params_path)
+    frap_exports = _read_vector_export(frap_export)
+    names = ["Venus_1001.nd2", "Venus_1002.nd2"]
+    datasets = _build_reaction_export_datasets(frap_exports, names)
+
+    result = fit_reaction_model(
+        datasets,
+        _reference_reaction_inputs(model_index=2),
+        _guide_reaction1_config(),
+        model_order=1,
+    )
+
+    for dataset in result.datasets:
+        guide = params[dataset.name]
+        assert dataset.reaction_parameters["a"] == pytest.approx(guide["a"], abs=1e-6)
+        assert dataset.reaction_parameters["b"] == pytest.approx(guide["b"], abs=1e-6)
+        assert dataset.reaction_parameters["c"] == pytest.approx(guide["c"], abs=1e-7)
+        assert dataset.sum_squared_residuals == pytest.approx(guide["SS"], rel=2e-5)
+        np.testing.assert_allclose(
+            dataset.frap_fit,
+            frap_exports[(dataset.name, "FRAP Fit")],
+            rtol=0,
+            atol=1e-6,
+        )
+        np.testing.assert_allclose(
+            dataset.frap_residuals,
+            frap_exports[(dataset.name, "Fit Residuals")],
+            rtol=0,
+            atol=1e-6,
+        )
+
+    guide_average = params["Avg."]
+    assert result.parameters["a"] == pytest.approx(guide_average["a"], abs=1e-6)
+    assert result.parameters["b"] == pytest.approx(guide_average["b"], abs=1e-6)
+    assert result.parameters["c"] == pytest.approx(guide_average["c"], abs=1e-7)
+    assert result.sum_squared_residuals == pytest.approx(guide_average["SS"], rel=5e-5)
+    np.testing.assert_allclose(
+        result.averaged_frap_fit,
+        frap_exports[("Average", "FRAP Fit")],
+        rtol=0,
+        atol=1e-6,
+    )
+    np.testing.assert_allclose(
+        result.averaged_frap_residuals,
+        frap_exports[("Average", "Fit Residuals")],
+        rtol=0,
+        atol=1e-6,
+    )
 
 
 def test_diffusion_lsm_time_metadata_matches_matlab_export():
@@ -337,6 +514,82 @@ def test_diffusion_legacy_fit_reproduces_guide_venus_cytoplasm_1_from_matlab_exp
     assert dataset.sum_squared_residuals == pytest.approx(expected["SS"], rel=1e-3)
 
 
+def test_diffusion_guide_parameters_reproduce_exported_model_curves():
+    params_path = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_Fit_Parameters.txt"
+    frap_export = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_FRAP_datasets.txt"
+    profile_export = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_Postbleach_profiles.txt"
+    _require_user_guide_fixtures(params_path, frap_export, profile_export)
+
+    params = _read_parameter_table(params_path)
+    frap_exports = _read_vector_export(frap_export)
+    profile_exports = _read_vector_export(profile_export)
+    nominal_radius = 9.0 * 0.10986328426900892
+    names = sorted(name for name in params if name.endswith(".lsm"))
+
+    for name in names:
+        expected = params[name]
+        radius = profile_exports[(name, "Distance")]
+        post_bleach_profile = profile_exports[(name, "Post-bleach Profile")]
+        profile_fit = np.exp(
+            -expected["k"] * np.exp(-2.0 * radius**2 / expected["re"] ** 2)
+        )
+        np.testing.assert_allclose(
+            profile_fit,
+            profile_exports[(name, "Profile Fit")],
+            rtol=0,
+            atol=2.5e-6,
+        )
+        np.testing.assert_allclose(
+            post_bleach_profile - profile_fit,
+            profile_exports[(name, "Fit Residuals")],
+            rtol=0,
+            atol=2.5e-6,
+        )
+
+        time = frap_exports[(name, "Time")]
+        fit_time = time[POST_BLEACH_INDEX:] - time[POST_BLEACH_INDEX]
+        corrected_frap = frap_exports[(name, "Corrected FRAP")][POST_BLEACH_INDEX:]
+        weights = corrected_frap.sum()
+        frap_initial = corrected_frap[0]
+        frap_fit = (
+            kang_frap(
+                fit_time,
+                expected["re"],
+                nominal_radius,
+                expected["D"],
+                expected["k"],
+            )
+            * expected["MF"]
+            + (1.0 - expected["MF"]) * frap_initial
+        )
+        weighted_residuals = corrected_frap / (fit_time + weights) - frap_fit / (
+            fit_time + weights
+        )
+
+        np.testing.assert_allclose(
+            fit_time,
+            frap_exports[(name, "Fit Time")],
+            rtol=0,
+            atol=1e-12,
+        )
+        np.testing.assert_allclose(
+            frap_fit,
+            frap_exports[(name, "FRAP Fit")],
+            rtol=0,
+            atol=2.5e-6,
+        )
+        np.testing.assert_allclose(
+            weighted_residuals,
+            frap_exports[(name, "Fit Residuals")],
+            rtol=0,
+            atol=7e-7,
+        )
+        assert np.dot(weighted_residuals, weighted_residuals) == pytest.approx(
+            expected["SS"],
+            rel=2e-3,
+        )
+
+
 def test_diffusion_d_mf_landscape_global_search_is_not_at_guide_d_for_venus_cytoplasm_3():
     params_path = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_Fit_Parameters.txt"
     frap_export = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_FRAP_datasets.txt"
@@ -408,38 +661,253 @@ def test_diffusion_d_mf_landscape_global_search_is_not_at_guide_d_for_venus_cyto
     assert best_ss < guide_ss * 0.75
 
 
-def test_diffusion_photodecay_stage_reproduces_corrected_frap_exports():
-    params_path = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_Fit_Parameters.txt"
-    frap_export = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_FRAP_datasets.txt"
-    profile_export = DIFFUSION_ROOT / "Venus_Cytoplasm_Diffusion_Postbleach_profiles.txt"
-    _require_user_guide_fixtures(params_path, frap_export, profile_export)
+def test_diffusion_legacy_optimizer_matches_guide_tables_from_matlab_exports():
+    cases = [
+        (
+            "Venus_Cytoplasm",
+            "Venus_Cytoplasm_1.lsm",
+            0.50,
+            1.5e-4,
+            0.1,
+        ),
+        (
+            "Venus-ATG5_Cytoplasm",
+            "Venus-Atg5_Cytoplasm_1.lsm",
+            0.01,
+            1e-5,
+            0.05,
+        ),
+    ]
 
-    params = _read_parameter_table(params_path)
-    frap_exports = _read_vector_export(frap_export)
-    profile_exports = _read_vector_export(profile_export)
-    datasets = _build_venus_cytoplasm_export_datasets(params, frap_exports, profile_exports)
-    inputs = BasicInputs(
-        file_paths=[Path("reference-export")],
-        model_index=1,
-        roi_mode=1,
-        normalize_by_cell=False,
-        background_intensity=0.0,
-        post_bleach_frame=POST_BLEACH_INDEX,
-        roi_definition=(256.0, 23.0, 9.0),
-        pre_bleach_frame_count=10,
-        use_adjacent_roi=True,
-    )
+    for prefix, first_name, max_d_error, max_mf_error, max_average_d_percent in cases:
+        params_path = DIFFUSION_ROOT / f"{prefix}_Diffusion_Fit_Parameters.txt"
+        frap_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_FRAP_datasets.txt"
+        profile_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_Postbleach_profiles.txt"
+        _require_user_guide_fixtures(params_path, frap_export, profile_export)
 
-    result = fit_diffusion_model(datasets, inputs, _guide_diffusion_config(frap_exports, profile_exports))
-
-    assert result.decay_rate == pytest.approx(0.005127, rel=1e-4)
-    for dataset in result.datasets:
-        np.testing.assert_allclose(
-            dataset.corrected_frap,
-            frap_exports[(dataset.name, "Corrected FRAP")],
-            rtol=0,
-            atol=5e-6,
+        params = _read_parameter_table(params_path)
+        frap_exports = _read_vector_export(frap_export)
+        profile_exports = _read_vector_export(profile_export)
+        datasets = _build_diffusion_export_datasets(params, frap_exports, profile_exports)
+        inputs = BasicInputs(
+            file_paths=[Path("reference-export")],
+            model_index=1,
+            roi_mode=1,
+            normalize_by_cell=False,
+            background_intensity=0.0,
+            post_bleach_frame=POST_BLEACH_INDEX,
+            roi_definition=(256.0, 23.0, 9.0),
+            pre_bleach_frame_count=10,
+            use_adjacent_roi=True,
         )
+        config = _guide_diffusion_config(frap_exports, profile_exports, first_name)
+
+        result = fit_diffusion_model(datasets, inputs, config)
+        guide_d = np.asarray([params[dataset.name]["D"] for dataset in result.datasets])
+        fit_d = np.asarray([dataset.diffusion_coefficient for dataset in result.datasets])
+        guide_mf = np.asarray([params[dataset.name]["MF"] for dataset in result.datasets])
+        fit_mf = np.asarray([dataset.mobile_fraction for dataset in result.datasets])
+
+        np.testing.assert_allclose(fit_d, guide_d, rtol=0, atol=max_d_error)
+        np.testing.assert_allclose(fit_mf, guide_mf, rtol=0, atol=max_mf_error)
+        assert abs((fit_d.mean() - guide_d.mean()) / guide_d.mean() * 100.0) <= max_average_d_percent
+
+
+def test_diffusion_global_fit_concatenates_curves_instead_of_fitting_average_curve():
+    cases = [
+        (
+            "Venus_Cytoplasm",
+            "Venus_Cytoplasm_1.lsm",
+            3.97188473,
+            39.72106608,
+            0.83394620,
+            6.3471858e-05,
+        ),
+        (
+            "Venus-ATG5_Cytoplasm",
+            "Venus-Atg5_Cytoplasm_1.lsm",
+            3.01699048,
+            9.83250202,
+            0.81492869,
+            9.3612840e-05,
+        ),
+    ]
+
+    for prefix, first_name, expected_re, expected_d, expected_mf, expected_concat_ss in cases:
+        params_path = DIFFUSION_ROOT / f"{prefix}_Diffusion_Fit_Parameters.txt"
+        frap_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_FRAP_datasets.txt"
+        profile_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_Postbleach_profiles.txt"
+        _require_user_guide_fixtures(params_path, frap_export, profile_export)
+
+        params = _read_parameter_table(params_path)
+        frap_exports = _read_vector_export(frap_export)
+        profile_exports = _read_vector_export(profile_export)
+        inputs = _reference_diffusion_inputs()
+
+        global_datasets = _build_diffusion_export_datasets(params, frap_exports, profile_exports)
+        global_config = _guide_diffusion_config(frap_exports, profile_exports, first_name)
+        global_config.fit_mode = "global"
+        global_config.optimizer_mode = "modern"
+        global_config.fit_averaged_data = True
+        global_result = fit_diffusion_model(global_datasets, inputs, global_config)
+
+        average_datasets = _build_diffusion_export_datasets(params, frap_exports, profile_exports)
+        average_config = _guide_diffusion_config(frap_exports, profile_exports, first_name)
+        average_config.fit_mode = "average_curve"
+        average_config.optimizer_mode = "modern"
+        average_result = fit_diffusion_model(average_datasets, inputs, average_config)
+
+        dataset_ss = sum(dataset.sum_squared_residuals for dataset in global_result.datasets)
+        dataset_re = [dataset.r_effective for dataset in global_result.datasets]
+        dataset_d = [dataset.diffusion_coefficient for dataset in global_result.datasets]
+        dataset_mf = [dataset.mobile_fraction for dataset in global_result.datasets]
+
+        assert global_result.r_effective == pytest.approx(expected_re, rel=1e-7)
+        assert global_result.diffusion_coefficient == pytest.approx(expected_d, rel=1e-7)
+        assert global_result.mobile_fraction == pytest.approx(expected_mf, rel=1e-7)
+        assert global_result.sum_squared_residuals == pytest.approx(expected_concat_ss, rel=1e-7)
+        assert global_result.sum_squared_residuals == pytest.approx(dataset_ss, rel=1e-12)
+        np.testing.assert_allclose(dataset_re, global_result.r_effective, rtol=0, atol=1e-12)
+        np.testing.assert_allclose(dataset_d, global_result.diffusion_coefficient, rtol=0, atol=1e-12)
+        np.testing.assert_allclose(dataset_mf, global_result.mobile_fraction, rtol=0, atol=1e-12)
+        assert global_result.sum_squared_residuals > average_result.sum_squared_residuals * 100.0
+
+
+def test_diffusion_simplified_kang_uses_confocal_profile_equation():
+    cases = [
+        (
+            "Venus_Cytoplasm",
+            "Venus_Cytoplasm_1.lsm",
+            4.9183,
+            40.1459,
+            0.08506,
+        ),
+        (
+            "Venus-ATG5_Cytoplasm",
+            "Venus-Atg5_Cytoplasm_1.lsm",
+            3.9287,
+            10.7484,
+            0.20372,
+        ),
+    ]
+
+    for prefix, first_name, expected_re, expected_d, expected_tau in cases:
+        params_path = DIFFUSION_ROOT / f"{prefix}_Diffusion_Fit_Parameters.txt"
+        frap_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_FRAP_datasets.txt"
+        profile_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_Postbleach_profiles.txt"
+        _require_user_guide_fixtures(params_path, frap_export, profile_export)
+
+        params = _read_parameter_table(params_path)
+        frap_exports = _read_vector_export(frap_export)
+        profile_exports = _read_vector_export(profile_export)
+        datasets = _build_diffusion_export_datasets(params, frap_exports, profile_exports)
+        config = _guide_diffusion_config(frap_exports, profile_exports, first_name)
+        config.fit_mode = "simplified_kang"
+        config.optimizer_mode = "modern"
+
+        result = fit_diffusion_model(datasets, _reference_diffusion_inputs(), config)
+
+        assert result.r_effective == pytest.approx(expected_re, abs=5e-4)
+        assert result.diffusion_coefficient == pytest.approx(expected_d, abs=5e-4)
+        assert result.half_time == pytest.approx(expected_tau, abs=5e-5)
+
+
+def test_diffusion_simplified_kang_global_pools_profile_and_recovery_curves():
+    cases = [
+        (
+            "Venus_Cytoplasm",
+            "Venus_Cytoplasm_1.lsm",
+            4.90140590,
+            40.51383439,
+            0.83475502,
+            0.07713860,
+            6.3825569e-05,
+        ),
+        (
+            "Venus-ATG5_Cytoplasm",
+            "Venus-Atg5_Cytoplasm_1.lsm",
+            3.92108297,
+            10.02250597,
+            0.81706244,
+            0.20394796,
+            9.3810997e-05,
+        ),
+    ]
+
+    for prefix, first_name, expected_re, expected_d, expected_mf, expected_tau, expected_ss in cases:
+        params_path = DIFFUSION_ROOT / f"{prefix}_Diffusion_Fit_Parameters.txt"
+        frap_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_FRAP_datasets.txt"
+        profile_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_Postbleach_profiles.txt"
+        _require_user_guide_fixtures(params_path, frap_export, profile_export)
+
+        params = _read_parameter_table(params_path)
+        frap_exports = _read_vector_export(frap_export)
+        profile_exports = _read_vector_export(profile_export)
+        datasets = _build_diffusion_export_datasets(params, frap_exports, profile_exports)
+        config = _guide_diffusion_config(frap_exports, profile_exports, first_name)
+        config.fit_mode = "simplified_kang_global"
+        config.optimizer_mode = "modern"
+        config.fit_averaged_data = True
+
+        result = fit_diffusion_model(datasets, _reference_diffusion_inputs(), config)
+        dataset_ss = sum(dataset.sum_squared_residuals for dataset in result.datasets)
+
+        assert result.r_effective == pytest.approx(expected_re, rel=1e-7)
+        assert result.diffusion_coefficient == pytest.approx(expected_d, rel=1e-7)
+        assert result.mobile_fraction == pytest.approx(expected_mf, rel=1e-7)
+        assert result.half_time == pytest.approx(expected_tau, rel=1e-7)
+        assert result.sum_squared_residuals == pytest.approx(expected_ss, rel=1e-7)
+        assert result.sum_squared_residuals == pytest.approx(dataset_ss, rel=1e-12)
+        np.testing.assert_allclose(
+            [dataset.r_effective for dataset in result.datasets],
+            result.r_effective,
+            rtol=0,
+            atol=1e-12,
+        )
+
+
+def test_diffusion_photodecay_stage_reproduces_corrected_frap_exports():
+    cases = [
+        ("Venus_Cytoplasm", VENUS_CYTO_1, 0.005127, 5e-6),
+        ("Venus-ATG5_Cytoplasm", "Venus-Atg5_Cytoplasm_1.lsm", 0.005536, 8e-5),
+    ]
+
+    for prefix, first_name, expected_decay, corrected_atol in cases:
+        params_path = DIFFUSION_ROOT / f"{prefix}_Diffusion_Fit_Parameters.txt"
+        frap_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_FRAP_datasets.txt"
+        profile_export = DIFFUSION_ROOT / f"{prefix}_Diffusion_Postbleach_profiles.txt"
+        _require_user_guide_fixtures(params_path, frap_export, profile_export)
+
+        params = _read_parameter_table(params_path)
+        frap_exports = _read_vector_export(frap_export)
+        profile_exports = _read_vector_export(profile_export)
+        datasets = _build_diffusion_export_datasets(params, frap_exports, profile_exports)
+        inputs = BasicInputs(
+            file_paths=[Path("reference-export")],
+            model_index=1,
+            roi_mode=1,
+            normalize_by_cell=False,
+            background_intensity=0.0,
+            post_bleach_frame=POST_BLEACH_INDEX,
+            roi_definition=(256.0, 23.0, 9.0),
+            pre_bleach_frame_count=10,
+            use_adjacent_roi=True,
+        )
+
+        result = fit_diffusion_model(
+            datasets,
+            inputs,
+            _guide_diffusion_config(frap_exports, profile_exports, first_name),
+        )
+
+        assert result.decay_rate == pytest.approx(expected_decay, rel=1e-4)
+        for dataset in result.datasets:
+            np.testing.assert_allclose(
+                dataset.corrected_frap,
+                frap_exports[(dataset.name, "Corrected FRAP")],
+                rtol=0,
+                atol=corrected_atol,
+            )
 
 
 @pytest.mark.xfail(

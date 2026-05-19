@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Iterable, Tuple
 
 import numpy as np
-from scipy.optimize import curve_fit, least_squares
+from scipy.optimize import curve_fit
 
+from .optimization import legacy_matlab_trf
 from .types import FRAPDataset
 
 
@@ -25,6 +26,16 @@ def estimate_decay_rate(
         time_offset = dataset.time - dataset.time[0]
         if reference_time is None:
             reference_time = time_offset
+            aligned_fraps.append(dataset.norm_frap)
+            continue
+
+        if legacy_matlab:
+            is_close = np.abs(reference_time - time_offset) <= (
+                0.1 * np.maximum(np.abs(reference_time), np.abs(time_offset))
+                + np.finfo(float).eps
+            )
+            if not np.all(is_close):
+                raise ValueError("Time vectors differ beyond MATLAB legacy tolerance.")
             aligned_fraps.append(dataset.norm_frap)
             continue
 
@@ -55,16 +66,13 @@ def estimate_decay_rate(
         return amplitude * np.exp(-rate * x)
 
     if legacy_matlab:
-        result = least_squares(
+        popt = legacy_matlab_trf(
             lambda params: model(fit_t, params[0], params[1]) - fit_f,
-            x0=[0.9, initial_rate],
-            bounds=([0.0, lower_bound], [2.0, upper_bound]),
-            ftol=1e-6,
-            xtol=1e-6,
-            gtol=1e-6,
-            max_nfev=200,
+            initial=np.asarray([0.9, initial_rate], dtype=float),
+            lower=np.asarray([0.0, lower_bound], dtype=float),
+            upper=np.asarray([2.0, upper_bound], dtype=float),
+            x_scale=np.ones(2),
         )
-        popt = result.x
     else:
         popt, _ = curve_fit(
             model,

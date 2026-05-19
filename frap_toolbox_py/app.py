@@ -45,6 +45,7 @@ def _build_diffusion_result(
     use_adjacent_roi: bool,
     adjacent_offset: float,
     max_profile_radius: float | None,
+    fit_mode: str,
 ):
     adjacent_factory = None
     if use_adjacent_roi:
@@ -80,6 +81,7 @@ def _build_diffusion_result(
         profile_indices = np.where(datasets[0].radius <= max_profile_radius)[0]
         if profile_indices.size > 2:
             config.profile_range = (int(profile_indices[0]), int(profile_indices[-1]) + 1)
+    config.fit_mode = fit_mode
 
     return fit_diffusion_model(datasets, inputs, config)
 
@@ -126,6 +128,7 @@ def _result_table(result) -> pd.DataFrame:
     values = {
         "Bleach depth (k)": result.k,
         "Effective radius (re)": result.r_effective,
+        "Half time (tau_1/2)": result.half_time,
         "Diffusion coefficient (D)": result.diffusion_coefficient,
         "Mobile fraction (MF)": result.mobile_fraction,
         "Corrected mobile fraction": result.corrected_mobile_fraction,
@@ -166,6 +169,21 @@ def main() -> None:
         use_adjacent_roi = st.checkbox("Adjacent ROI correction", value=True)
         adjacent_offset = st.slider("Adjacent ROI offset", min_value=1.0, max_value=5.0, value=2.5, step=0.1)
         max_profile_radius = st.number_input("Max profile radius (um)", min_value=0.0, value=0.0, step=0.5)
+        fit_mode = st.selectbox(
+            "Fit mode",
+            [
+                "global",
+                "individual",
+                "average_curve",
+                "simplified_kang",
+                "simplified_kang_global",
+            ],
+            index=0,
+            help=(
+                "Global concatenates residuals across curves. Average curve reproduces MATLAB's averaged-data "
+                "option. Simplified Kang can run per curve or as a pooled global fit."
+            ),
+        )
 
         run_requested = st.button("Run analysis", type="primary", icon=":material/play_arrow:")
 
@@ -190,6 +208,7 @@ def main() -> None:
                         use_adjacent_roi,
                         float(adjacent_offset),
                         profile_limit,
+                        fit_mode,
                     )
                 except Exception as exc:
                     st.error(str(exc))

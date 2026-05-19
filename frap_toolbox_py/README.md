@@ -76,13 +76,20 @@ frap-toolbox test-data/Diffusion/Venus_Cytoplasm_*.lsm \
 Useful flags:
 - `--adjacent-offset` (default `2.5`): controls spacing of the adjacent ROI used when
   computing corrected mobile fractions.
+- `--fit-mode` (default `global`): choose `global` for a true shared `K`/`re`/`D`/`MF`
+  fit across pooled curves, `individual` for per-stack fits averaged afterward,
+  `average_curve` to fit only the averaged FRAP/profile curves, `simplified_kang`
+  for the Kang half-time estimator, or `simplified_kang_global` for a pooled global
+  fit of the simplified profile/recovery equations.
 - `--normalize-by-cell`: supply if you draw or compute a whole-cell mask and want to
   normalize by it.
-- `--model`: currently only accepts `diffusion` but remains for future extensions.
+- `--model`: choose `diffusion`, `reaction1`, or `reaction2`. Reaction workflows can
+  use `--cell-roi X Y RADIUS` when whole-cell normalization is enabled.
 
-Output includes the fitted bleach depth, effective radius, diffusion coefficient, and
-mobile fraction. The command returns a non-zero exit code if dataset loading or fitting
-fails, making it suitable for scripted validation.
+Diffusion output includes bleach depth, effective radius, diffusion coefficient, and
+mobile fraction. Reaction output includes the fitted reaction parameters and residual
+SS. The command returns a non-zero exit code if dataset loading or fitting fails,
+making it suitable for scripted validation.
 
 ## 7. Run unit tests
 ```bash

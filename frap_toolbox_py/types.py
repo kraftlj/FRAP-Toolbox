@@ -28,8 +28,10 @@ class FRAPDataset:
     sum_squared_residuals: Optional[float] = None
     k: Optional[float] = None
     r_effective: Optional[float] = None
+    half_time: Optional[float] = None
     diffusion_coefficient: Optional[float] = None
     mobile_fraction: Optional[float] = None
+    reaction_parameters: dict = field(default_factory=dict)
     voxel_size_x: Optional[float] = None
     voxel_size_y: Optional[float] = None
     metadata: dict = field(default_factory=dict)
@@ -75,6 +77,8 @@ class DiffusionFitConfig:
     mobile_fraction_range: tuple[int, int]
     fit_averaged_data: bool
     optimizer_mode: str = "modern"
+    # "auto", "individual", "average_curve", "global", "simplified_kang", or "simplified_kang_global"
+    fit_mode: str = "auto"
 
 
 @dataclass
@@ -84,6 +88,7 @@ class DiffusionFitResult:
     datasets: List[FRAPDataset]
     k: float
     r_effective: float
+    half_time: Optional[float]
     diffusion_coefficient: float
     mobile_fraction: float
     corrected_mobile_fraction: Optional[float]
@@ -93,6 +98,37 @@ class DiffusionFitResult:
     averaged_profile: Optional[np.ndarray] = None
     averaged_profile_fit: Optional[np.ndarray] = None
     averaged_profile_residuals: Optional[np.ndarray] = None
+    averaged_time: Optional[np.ndarray] = None
+    averaged_frap: Optional[np.ndarray] = None
+    averaged_frap_fit: Optional[np.ndarray] = None
+    averaged_frap_residuals: Optional[np.ndarray] = None
+
+
+@dataclass
+class ReactionFitConfig:
+    """Parameter configuration for reaction model fitting."""
+
+    a: FitBounds
+    b: FitBounds
+    c: FitBounds
+    decay_rate: FitBounds
+    frap_range: tuple[int, int]
+    decay_fit_range: tuple[int, int]
+    fit_averaged_data: bool
+    d: Optional[FitBounds] = None
+    f: Optional[FitBounds] = None
+    optimizer_mode: str = "modern"
+
+
+@dataclass
+class ReactionFitResult:
+    """Aggregated outputs from a reaction model fit."""
+
+    model_order: int
+    datasets: List[FRAPDataset]
+    parameters: dict[str, float]
+    decay_rate: float
+    sum_squared_residuals: float
     averaged_time: Optional[np.ndarray] = None
     averaged_frap: Optional[np.ndarray] = None
     averaged_frap_fit: Optional[np.ndarray] = None
