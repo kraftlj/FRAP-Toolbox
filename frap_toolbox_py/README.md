@@ -1,8 +1,8 @@
 # Running the FRAP-Toolbox Python Port
 
-This guide explains how to set up a Python environment and run the diffusion workflow
-implemented in `frap_toolbox_py`. The steps assume macOS or Linux with bash, but only the
-activation command differs on Windows.
+This guide explains how to set up a Python environment and run the modern
+`frap_toolbox_py` package. The steps assume macOS or Linux with bash, but only
+the activation command differs on Windows.
 
 ## 1. Prerequisites
 - Python 3.10 or newer
@@ -18,16 +18,31 @@ source .venv/bin/activate
 If you prefer `conda`, create and activate an equivalent Python 3.10+ environment instead.
 
 ## 3. Install the package and dependencies
-Install the project in editable mode so CLI and app changes are picked up automatically.
+Install the project in editable mode so CLI and app changes are picked up
+automatically. For headless development and CI, use the core test stack:
+
 ```bash
 pip install --upgrade pip
+pip install -e ".[test]"
+```
+
+Install the local browser app stack when you want to run the GUI:
+
+```bash
 pip install -e ".[app,test]"
 ```
 
 Optional extras:
-- `pip install -e ".[nd2]"` for the BioIO ND2 reader.
-- `pip install -e ".[bioformats]"` for the BioIO Bio-Formats reader.
+- `pip install -e ".[nd2]"` for Nikon ND2 files through BioIO.
+- `pip install -e ".[bioformats]"` for Bio-Formats-backed readers.
 - `pip install -e ".[legacy-io]"` for the older AICSImageIO fallback.
+- `pip install -e ".[qt]"` for the experimental Qt GUI dependencies.
+
+For local guide parity work with all ignored microscopy fixtures available:
+
+```bash
+pip install -e ".[test,nd2,bioformats,legacy-io]"
+```
 
 ## 4. Run the local app
 ```bash
@@ -48,7 +63,7 @@ available, use:
 - Background intensity: `0`
 - Enable corrected mobile fraction by using an adjacent ROI (2.5× radius offset)
 
-## 6. Run the diffusion CLI
+## 6. Run the CLI
 All commands assume the project root as the working directory and the virtual environment
 is active.
 
@@ -98,11 +113,31 @@ making it suitable for scripted validation.
 python -m pytest
 ```
 
-This executes the regression tests under `frap_toolbox_py/tests`. Integration tests that
-need the large local `test-data/` fixtures skip automatically when those files are not
-present. Add new tests before contributing model changes or additional readers.
+This executes the regression tests under `frap_toolbox_py/tests`. Integration
+tests that need the large local `test-data/` fixtures skip automatically when
+those files are not present, which is the expected behavior in CI and public
+checkouts.
 
-## 8. Troubleshooting tips
+When `test-data/` is present locally, the same command also runs guide-derived
+MATLAB parity tests. To focus on that layer:
+
+```bash
+python -m pytest -q frap_toolbox_py/tests/test_user_guide_parity.py
+```
+
+Add new tests before contributing model changes or additional readers.
+
+## 8. Package checks
+Before publishing or opening a packaging PR, run:
+
+```bash
+python -m pip check
+python -m pip install build twine
+python -m build --sdist --wheel
+python -m twine check dist/*
+```
+
+## 9. Troubleshooting tips
 - If you see repeated `Could not parse tiff pixel size` warnings, the TIFF metadata did not
   include a usable physical pixel size. The fits still run; specify voxel sizes manually if
   you need absolute distance units.
@@ -112,7 +147,7 @@ present. Add new tests before contributing model changes or additional readers.
 - The default reader path is BioIO plus `bioio-tifffile`. Add the `nd2` or `bioformats`
   extras when your microscope format needs another BioIO plugin.
 
-## 9. Next steps
+## 10. Next steps
 - Explore `frap_toolbox_py/data/loading.py` and `frap_toolbox_py/models/diffusion.py` to
   understand how stacks are loaded and fitted.
 - Compare CLI output to the legacy MATLAB results stored in `test-data/Diffusion/*` to
