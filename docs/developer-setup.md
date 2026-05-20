@@ -101,6 +101,11 @@ Known current caveats:
 - Reaction 2 has a parameter-table fixture and raw ND2 files, but still needs a
   FRAP vector export or stored ROI masks for guide-level curve parity.
 
+If a remote collaborator has MATLAB installed, send them
+`docs/remote-matlab-parity-probe.md`. The tracked
+`scripts/matlab_parity_probe.m` script writes a self-contained evidence bundle
+under `scratch/matlab-parity-output/` without modifying source files.
+
 ## Packaging Checks
 
 Run these before publishing a release or opening a packaging-focused PR:

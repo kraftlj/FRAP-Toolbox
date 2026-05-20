@@ -310,6 +310,10 @@ semantic table equality is a better modernization target.
   but each `xfail` must state the current gap it represents.
 - Once a subsystem reaches parity, remove the `xfail` and make the test part of
   the normal gate.
+- If a collaborator has MATLAB available, use
+  `docs/remote-matlab-parity-probe.md` and `scripts/matlab_parity_probe.m` to
+  collect the remaining MATLAB-only ROI rasterization and optimizer-trace
+  evidence.
 
 ## Recommended First Gates
 
