@@ -47,10 +47,28 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-  "pytest>=7.4"
+  "pytest>=7.4",
+  "fastapi>=0.115",
+  "httpx>=0.27"
 ]
 app = [
   "streamlit>=1.51"
+]
+cloud-api = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30"
+]
+cloud-gcp = [
+  "google-cloud-batch>=0.17",
+  "google-cloud-firestore>=2.16",
+  "google-cloud-storage>=2.18"
+]
+cloud = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "google-cloud-batch>=0.17",
+  "google-cloud-firestore>=2.16",
+  "google-cloud-storage>=2.18"
 ]
 app-nd2 = [
   "streamlit>=1.51",
@@ -85,6 +103,7 @@ Issues = "https://github.com/kraftlj/FRAP-Toolbox/issues"
 [project.scripts]
 frap-toolbox = "frap_toolbox_py.cli:main"
 frap-toolbox-app = "frap_toolbox_py.app_launcher:main"
+frap-toolbox-run = "frap_toolbox_py.cloud.worker:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

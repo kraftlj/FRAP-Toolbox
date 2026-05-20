@@ -2,6 +2,10 @@
 
 This note tracks the practical user path for the modern Python app.
 
+For the new cloud-first pilot architecture, see `docs/cloud-first-web-app.md`.
+The Streamlit app below remains the local workstation/developer surface while the
+Cloud Run + GCS + Batch workflow matures toward end-user parity.
+
 ## Recommended Local Setup
 
 Use this setup for lab workstations that need to open Nikon ND2 files:

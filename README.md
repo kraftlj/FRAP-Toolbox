@@ -71,6 +71,18 @@ The app can select diffusion, Reaction 1, or Reaction 2 models, run circular num
 analyses, and load saved binary ROI masks. See `frap_toolbox_py/README.md` and
 `docs/app-deployment.md` for the current app workflow and remaining hand-drawn ROI plan.
 
+### Cloud-first web pilot
+The modern cloud path is now scaffolded alongside the local app. It includes a
+responsive TypeScript client in `web/`, a FastAPI Cloud Run API in
+`frap_toolbox_py.cloud.backend`, and a Google Batch worker entrypoint,
+`frap-toolbox-run`, that consumes run manifests from object storage. The intended
+workflow is sequencing-style: pilot users sign in, upload large microscopy files
+directly to GCS with resumable upload sessions, draw/select ROIs in the browser,
+and run the existing Python analysis engine in a container near the data.
+
+See `docs/cloud-first-web-app.md` for local development, deployment environment
+variables, Docker images, storage layout, and the retained-raw-data pilot policy.
+
 ## About
 ### History
 FRAP-Toolbox was developed to make quantitative FRAP analysis accessible to the broader research community. The project grew out of a collaboration between Anne Kenworthy's research group and biomathematicians led by Emmanuele DiBenedetto, funded by the National Science Foundation.
