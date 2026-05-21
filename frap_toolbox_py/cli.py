@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from .data.loading import load_diffusion_datasets, load_reaction_datasets
+from .exports import write_analysis_bundle
 from .models.diffusion import default_diffusion_config, fit_diffusion_model
 from .models.reaction import (
     default_reaction1_config,
@@ -85,7 +86,75 @@ def parse_arguments(argv: Optional[List[str]] = None) -> argparse.Namespace:
             "'average_curve' select per-curve or averaged-curve fitting."
         ),
     )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Write the local beta export bundle to this directory.",
+    )
     return parser.parse_args(argv)
+
+
+def _image_shape_from_datasets(datasets) -> tuple[int, int] | None:
+    for dataset in datasets:
+        image_shape = dataset.metadata.get("image_shape")
+        if image_shape is not None:
+            return tuple(int(value) for value in image_shape)
+    return None
+
+
+def _mask_for_export(mask_or_factory, image_shape: tuple[int, int] | None):
+    if mask_or_factory is None or image_shape is None:
+        return None
+    if hasattr(mask_or_factory, "shape"):
+        return mask_or_factory
+    return mask_or_factory(image_shape)
+
+
+def _write_cli_exports(args, result, datasets, mask_factory, cell_factory, model: str) -> None:
+    if args.output_dir is None:
+        return
+
+    image_shape = _image_shape_from_datasets(datasets)
+    roi_masks = {}
+    bleach_mask = _mask_for_export(mask_factory, image_shape)
+    if bleach_mask is not None:
+        roi_masks["bleach"] = bleach_mask
+    cell_mask = _mask_for_export(cell_factory, image_shape)
+    if cell_mask is not None:
+        roi_masks["cell"] = cell_mask
+
+    roi_sources = {
+        "bleach": "Saved mask upload" if args.bleach_mask is not None else "Circular numeric ROI",
+    }
+    if args.cell_mask is not None:
+        roi_sources["cell"] = "Saved mask upload"
+    elif args.cell_roi is not None:
+        roi_sources["cell"] = "Circular numeric ROI"
+
+    write_analysis_bundle(
+        args.output_dir,
+        result,
+        model=model,
+        files=args.files,
+        settings={
+            "post_bleach_frame": args.post_bleach_frame,
+            "pre_bleach_count": args.pre_bleach_count,
+            "background": args.background,
+            "normalize_by_cell": args.normalize_by_cell,
+            "use_adjacent_roi": args.use_adjacent_roi,
+            "adjacent_offset": args.adjacent_offset,
+        },
+        roi_sources=roi_sources,
+        fit_mode=args.fit_mode,
+        roi_masks=roi_masks,
+        roi_extra_metadata={
+            "frame_index": None,
+            "roi_source": roi_sources,
+            "model": model,
+            "created_by": "frap-toolbox-cli",
+        },
+        created_by="frap-toolbox-cli",
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> None:
@@ -166,6 +235,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             config.fit_averaged_data = True
 
         result = fit_reaction_model(datasets, inputs, config, model_order=model_order)
+        _write_cli_exports(args, result, datasets, mask_factory, cell_factory, args.model)
 
         print(f"Reaction {model_order} model fit results:")
         for name, value in result.parameters.items():
@@ -191,6 +261,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     config.fit_mode = args.fit_mode
 
     result = fit_diffusion_model(datasets, inputs, config)
+    _write_cli_exports(args, result, datasets, mask_factory, cell_factory, args.model)
 
     print("Diffusion model fit results:")
     print(f"  Bleach depth (k): {result.k:.4g}")

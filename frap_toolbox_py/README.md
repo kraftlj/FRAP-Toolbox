@@ -61,15 +61,16 @@ reviewing diagnostic plots.
 Current ROI options:
 - Circular numeric bleach ROI, matching the CLI `--roi X Y RADIUS` input.
 - Optional circular whole-cell ROI when whole-cell normalization is enabled.
+- Image-backed preview ROI authoring. Click-to-place circular ROIs are available
+  from the preview, and polygon drawing is available for reaction bleach ROIs
+  and whole-cell masks.
 - Saved mask upload for reaction bleach and whole-cell ROIs. The app accepts
   `.npy`, `.npz`, `.csv`, `.tsv`, and whitespace-delimited `.txt` masks. The
   canonical `.npz` container is documented in `docs/roi-mask-format.md`;
   generic single-array masks are accepted for exploratory use.
-
-Hand-drawn ROI support is expected to land as a small workflow on top of saved masks:
-draw bleach and cell ROIs in an image preview, rasterize them once, save the masks, and
-reuse those masks for repeatable fitting. Until that branch is merged, users can export
-binary masks from another image tool and load them through the saved-mask upload controls.
+- Local export bundles can be written from the app after a run. They include
+  result parameters, FRAP series, diffusion profiles when applicable, ROI masks,
+  and run metadata.
 
 ## 5. Recommended test dataset parameters
 The original MATLAB user guide documents parameters for the Zeiss LSM diffusion
@@ -121,6 +122,9 @@ Useful flags:
   use `--cell-roi X Y RADIUS` when whole-cell normalization is enabled.
 - `--bleach-mask` and `--cell-mask`: load saved `.npz` ROI masks instead of circular
   ROI parameters. See `docs/roi-mask-format.md` for the container contract.
+- `--output-dir`: write the local beta export bundle, including
+  `result-parameters.csv`, `frap-series.csv`, optional `post-bleach-profile.csv`,
+  `roi-masks.npz`, and `run-metadata.json`.
 
 Diffusion output includes bleach depth, effective radius, diffusion coefficient, and
 mobile fraction. Reaction output includes the fitted reaction parameters and residual

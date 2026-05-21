@@ -14,14 +14,21 @@ try:
 except ImportError:  # pragma: no cover - app extra is optional for library use
     st = None
 
+try:
+    from streamlit_image_coordinates import streamlit_image_coordinates
+except ImportError:  # pragma: no cover - app extra is optional for library use
+    streamlit_image_coordinates = None
+
 from frap_toolbox_py.data.loading import load_diffusion_datasets, load_reaction_datasets
+from frap_toolbox_py.data.loading import _open_image
+from frap_toolbox_py.exports import result_parameters_table, write_analysis_bundle
 from frap_toolbox_py.models.diffusion import default_diffusion_config, fit_diffusion_model
 from frap_toolbox_py.models.reaction import (
     default_reaction1_config,
     default_reaction2_config,
     fit_reaction_model,
 )
-from frap_toolbox_py.roi import CircularROI, adjacent_circle, load_roi_mask
+from frap_toolbox_py.roi import CircularROI, PolygonROI, adjacent_circle, load_roi_mask
 from frap_toolbox_py.types import BasicInputs
 
 
@@ -50,6 +57,10 @@ DIFFUSION_FIT_MODES = [
     "simplified_kang_global",
 ]
 REACTION_FIT_MODES = ["individual", "average_curve"]
+ROI_SOURCE_CIRCULAR = "Circular numeric ROI"
+ROI_SOURCE_DRAW_CIRCLE = "Draw circle on preview"
+ROI_SOURCE_DRAW_POLYGON = "Draw polygon on preview"
+ROI_SOURCE_SAVED_MASK = "Saved mask upload"
 SOFTWARE_AUTHORS = (
     "Lewis J. Kraft, Jacob Dowler, Charles A. Day, Minchul Kang, and Anne K. Kenworthy"
 )
@@ -79,6 +90,163 @@ def _find_files(directory: Path, extensions: list[str]) -> list[Path]:
         if path.is_file() and any(name.endswith(ext) for ext in normalized):
             files.append(path)
     return sorted(files, key=lambda path: path.name.lower())
+
+
+def _contrast_preview_frame(frame: np.ndarray) -> np.ndarray:
+    image = np.asarray(frame, dtype=float)
+    if image.ndim != 2:
+        raise ValueError("Preview frames must be 2-D.")
+    finite = image[np.isfinite(image)]
+    if finite.size == 0:
+        return np.zeros((*image.shape, 3), dtype=np.uint8)
+
+    low, high = np.percentile(finite, [1, 99])
+    if not np.isfinite(low) or not np.isfinite(high) or high <= low:
+        low = float(np.nanmin(finite))
+        high = float(np.nanmax(finite))
+    if high <= low:
+        scaled = np.zeros_like(image, dtype=np.uint8)
+    else:
+        scaled = np.clip((image - low) / (high - low), 0.0, 1.0)
+        scaled = (scaled * 255).astype(np.uint8)
+    return np.repeat(scaled[:, :, None], 3, axis=2)
+
+
+def _preview_stack_shape(path: Path) -> tuple[int, int, int]:
+    image, _ = _open_image(path)
+    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0))
+    if stack.ndim != 3:
+        raise ValueError("Expected stack with dimensions (T, Y, X).")
+    return tuple(int(value) for value in stack.shape)  # type: ignore[return-value]
+
+
+def _preview_frame(path: Path, frame_index: int) -> np.ndarray:
+    image, _ = _open_image(path)
+    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0))
+    if stack.ndim != 3:
+        raise ValueError("Expected stack with dimensions (T, Y, X).")
+    clipped = min(max(int(frame_index), 0), stack.shape[0] - 1)
+    return stack[clipped]
+
+
+def _clip_zero_based_point(x: float, y: float, image_shape: tuple[int, int]) -> tuple[float, float]:
+    height, width = image_shape
+    return (
+        float(np.clip(x, 0, width - 1)),
+        float(np.clip(y, 0, height - 1)),
+    )
+
+
+def _click_to_polygon_point(click: dict[str, object], image_shape: tuple[int, int]) -> tuple[float, float]:
+    return _clip_zero_based_point(float(click["x"]), float(click["y"]), image_shape)
+
+
+def _click_to_circular_roi(click: dict[str, object], radius: float, image_shape: tuple[int, int]) -> CircularROI:
+    x, y = _clip_zero_based_point(float(click["x"]), float(click["y"]), image_shape)
+    return CircularROI(center_x=x + 1.0, center_y=y + 1.0, radius=radius)
+
+
+def _add_polygon_point(
+    points: list[tuple[float, float]],
+    click: dict[str, object],
+    image_shape: tuple[int, int],
+) -> list[tuple[float, float]]:
+    return [*points, _click_to_polygon_point(click, image_shape)]
+
+
+def _undo_polygon_point(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    return points[:-1]
+
+
+def _clear_polygon_points() -> list[tuple[float, float]]:
+    return []
+
+
+def _polygon_points_to_mask(points: list[tuple[float, float]], image_shape: tuple[int, int]) -> np.ndarray:
+    if len(points) < 3:
+        raise ValueError("Draw at least three polygon points before running analysis.")
+    mask = PolygonROI(points).to_mask(image_shape)
+    if not mask.any():
+        raise ValueError("Drawn polygon ROI is empty.")
+    return mask
+
+
+def _blend_mask(rgb: np.ndarray, mask: np.ndarray, color: tuple[int, int, int], alpha: float = 0.35) -> np.ndarray:
+    if mask.shape != rgb.shape[:2]:
+        return rgb
+    output = rgb.astype(float, copy=True)
+    color_array = np.asarray(color, dtype=float)
+    output[mask] = output[mask] * (1.0 - alpha) + color_array * alpha
+    return output.astype(np.uint8)
+
+
+def _mark_point(rgb: np.ndarray, x: float, y: float, color: tuple[int, int, int], radius: int = 3) -> np.ndarray:
+    output = rgb.copy()
+    center_x = int(round(x))
+    center_y = int(round(y))
+    height, width = output.shape[:2]
+    y0 = max(0, center_y - radius)
+    y1 = min(height, center_y + radius + 1)
+    x0 = max(0, center_x - radius)
+    x1 = min(width, center_x + radius + 1)
+    yy, xx = np.ogrid[y0:y1, x0:x1]
+    disk_mask = (yy - center_y) ** 2 + (xx - center_x) ** 2 <= radius**2
+    patch = output[y0:y1, x0:x1]
+    patch[disk_mask] = color
+    return output
+
+
+def _draw_line(rgb: np.ndarray, start: tuple[float, float], end: tuple[float, float], color: tuple[int, int, int]) -> np.ndarray:
+    output = rgb.copy()
+    x0, y0 = start
+    x1, y1 = end
+    steps = max(int(abs(x1 - x0)), int(abs(y1 - y0)), 1)
+    xs = np.linspace(x0, x1, steps + 1)
+    ys = np.linspace(y0, y1, steps + 1)
+    height, width = output.shape[:2]
+    for x, y in zip(xs, ys):
+        col = int(round(x))
+        row = int(round(y))
+        if 0 <= row < height and 0 <= col < width:
+            output[row, col] = color
+    return output
+
+
+def _overlay_roi_preview(
+    preview_rgb: np.ndarray,
+    *,
+    circular_rois: dict[str, CircularROI],
+    polygon_points: dict[str, list[tuple[float, float]]],
+    closed_polygons: dict[str, bool] | None = None,
+    masks: dict[str, np.ndarray],
+) -> np.ndarray:
+    output = preview_rgb.copy()
+    closed_polygons = closed_polygons or {}
+    colors = {
+        "bleach": (230, 88, 57),
+        "cell": (49, 131, 196),
+    }
+    for role, mask in masks.items():
+        output = _blend_mask(output, mask, colors.get(role, (80, 180, 120)))
+    for role, roi in circular_rois.items():
+        mask = roi.to_mask(output.shape[:2])
+        output = _blend_mask(output, mask, colors.get(role, (80, 180, 120)))
+        output = _mark_point(output, roi.center_x - 1.0, roi.center_y - 1.0, colors.get(role, (80, 180, 120)))
+    for role, points in polygon_points.items():
+        color = colors.get(role, (80, 180, 120))
+        is_closed = closed_polygons.get(role, False)
+        if is_closed and len(points) >= 3:
+            try:
+                output = _blend_mask(output, _polygon_points_to_mask(points, output.shape[:2]), color, alpha=0.25)
+            except ValueError:
+                pass
+        for point in points:
+            output = _mark_point(output, point[0], point[1], color)
+        for start, end in zip(points, points[1:]):
+            output = _draw_line(output, start, end, color)
+        if is_closed and len(points) >= 3:
+            output = _draw_line(output, points[-1], points[0], color)
+    return output
 
 
 def _default_fit_mode(model_key: str) -> str:
@@ -334,49 +502,35 @@ def _plot_profile(result):
 
 
 def _result_table(result) -> pd.DataFrame:
-    if hasattr(result, "parameters"):
-        rows = [
-            {"Parameter": f"Reaction {result.model_order} parameter {name}", "Value": float(value)}
-            for name, value in result.parameters.items()
-        ]
-        rows.extend(
-            [
-                {"Parameter": "Photodecay rate", "Value": float(result.decay_rate)},
-                {"Parameter": "Sum squared residuals", "Value": float(result.sum_squared_residuals)},
-            ]
-        )
-        return pd.DataFrame(rows)
+    return result_parameters_table(result)
 
-    values = {
-        "Bleach depth (k)": result.k,
-        "Effective radius (re)": result.r_effective,
-        "Half time (tau_1/2)": result.half_time,
-        "Diffusion coefficient (D)": result.diffusion_coefficient,
-        "Mobile fraction (MF)": result.mobile_fraction,
-        "Corrected mobile fraction": result.corrected_mobile_fraction,
-        "Photodecay rate": result.decay_rate,
-        "Sum squared residuals": result.sum_squared_residuals,
-    }
-    return pd.DataFrame(
-        [{"Parameter": label, "Value": None if value is None else float(value)} for label, value in values.items()]
+
+def _render_roi_controls(
+    prefix: str,
+    default_radius: float,
+    *,
+    allow_saved_mask: bool = True,
+    allow_polygon: bool = True,
+):
+    key_prefix = prefix.lower()
+    options = [ROI_SOURCE_CIRCULAR, ROI_SOURCE_DRAW_CIRCLE]
+    if allow_polygon:
+        options.append(ROI_SOURCE_DRAW_POLYGON)
+    if allow_saved_mask:
+        options.append(ROI_SOURCE_SAVED_MASK)
+
+    roi_source = st.radio(
+        f"{prefix} ROI source",
+        options,
+        horizontal=False,
+        key=f"{key_prefix}_roi_source",
     )
 
-
-def _render_roi_controls(prefix: str, default_radius: float, allow_saved_mask: bool = True):
-    roi_source = "Circular numeric ROI"
-    if allow_saved_mask:
-        roi_source = st.radio(
-            f"{prefix} ROI source",
-            ["Circular numeric ROI", "Saved mask upload"],
-            horizontal=True,
-            key=f"{prefix.lower()}_roi_source",
-        )
-
-    if roi_source == "Saved mask upload":
+    if roi_source == ROI_SOURCE_SAVED_MASK:
         uploaded = st.file_uploader(
             f"{prefix} mask",
             type=[ext.removeprefix(".") for ext in MASK_EXTENSIONS],
-            key=f"{prefix.lower()}_mask_upload",
+            key=f"{key_prefix}_mask_upload",
             help=(
                 "Accepted formats are FRAP-Toolbox ROI mask NPZ files, NPY, CSV, "
                 "TSV, or whitespace-delimited TXT. Generic NPZ files may use "
@@ -385,10 +539,47 @@ def _render_roi_controls(prefix: str, default_radius: float, allow_saved_mask: b
         )
         return roi_source, None, uploaded
 
+    if roi_source == ROI_SOURCE_DRAW_POLYGON:
+        points = st.session_state.get(f"{key_prefix}_polygon_points", [])
+        button_col_1, button_col_2, button_col_3 = st.columns(3)
+        if button_col_1.button("Undo point", key=f"{key_prefix}_undo_point"):
+            st.session_state[f"{key_prefix}_polygon_points"] = _undo_polygon_point(points)
+            st.session_state[f"{key_prefix}_polygon_closed"] = False
+        if button_col_2.button("Clear ROI", key=f"{key_prefix}_clear_points"):
+            st.session_state[f"{key_prefix}_polygon_points"] = _clear_polygon_points()
+            st.session_state[f"{key_prefix}_polygon_closed"] = False
+        if button_col_3.button("Close ROI", key=f"{key_prefix}_close_points"):
+            st.session_state[f"{key_prefix}_polygon_closed"] = len(points) >= 3
+        point_count = len(st.session_state.get(f"{key_prefix}_polygon_points", []))
+        closed_text = "closed" if st.session_state.get(f"{key_prefix}_polygon_closed", False) else "open"
+        st.caption(f"{point_count} polygon points, {closed_text}")
+        return roi_source, None, None
+
+    if f"{key_prefix}_center_x" not in st.session_state:
+        st.session_state[f"{key_prefix}_center_x"] = 256.0
+    if f"{key_prefix}_center_y" not in st.session_state:
+        st.session_state[f"{key_prefix}_center_y"] = 23.0 if key_prefix == "bleach" else 256.0
+    if f"{key_prefix}_radius" not in st.session_state:
+        st.session_state[f"{key_prefix}_radius"] = default_radius
     roi_col_1, roi_col_2 = st.columns(2)
-    center_x = roi_col_1.number_input(f"{prefix} center X", min_value=0.0, value=256.0, step=1.0)
-    center_y = roi_col_2.number_input(f"{prefix} center Y", min_value=0.0, value=23.0, step=1.0)
-    radius = st.number_input(f"{prefix} radius", min_value=0.1, value=default_radius, step=0.5)
+    center_x = roi_col_1.number_input(
+        f"{prefix} center X",
+        min_value=0.0,
+        step=1.0,
+        key=f"{key_prefix}_center_x",
+    )
+    center_y = roi_col_2.number_input(
+        f"{prefix} center Y",
+        min_value=0.0,
+        step=1.0,
+        key=f"{key_prefix}_center_y",
+    )
+    radius = st.number_input(
+        f"{prefix} radius",
+        min_value=0.1,
+        step=0.5,
+        key=f"{key_prefix}_radius",
+    )
     return roi_source, CircularROI(center_x=center_x, center_y=center_y, radius=radius), None
 
 
@@ -398,15 +589,137 @@ def _resolve_roi(
     uploaded_mask,
     mask_name: str,
     label: str,
+    *,
+    polygon_points: list[tuple[float, float]] | None = None,
+    image_shape: tuple[int, int] | None = None,
+    polygon_closed: bool = True,
 ):
-    if roi_source == "Saved mask upload":
+    if roi_source == ROI_SOURCE_SAVED_MASK:
         if uploaded_mask is None:
             raise ValueError(f"Upload a {label} mask before running analysis.")
         return _load_mask_array(uploaded_mask, mask_name=mask_name, label=label), 2, ()
 
+    if roi_source == ROI_SOURCE_DRAW_POLYGON:
+        if image_shape is None:
+            raise ValueError(f"Preview an image before drawing a {label}.")
+        if not polygon_closed:
+            raise ValueError(f"Close the {label} polygon before running analysis.")
+        return _polygon_points_to_mask(polygon_points or [], image_shape), 2, ()
+
     if circular_roi is None:
         raise ValueError(f"Define a circular {label} ROI before running analysis.")
     return _circular_mask_factory(circular_roi), 1, (circular_roi.center_x, circular_roi.center_y, circular_roi.radius)
+
+
+def _role_key(role: str) -> str:
+    return role.lower()
+
+
+def _polygon_points_for_role(role: str) -> list[tuple[float, float]]:
+    points = st.session_state.get(f"{_role_key(role)}_polygon_points", [])
+    return [(float(x), float(y)) for x, y in points]
+
+
+def _polygon_closed_for_role(role: str) -> bool:
+    return bool(st.session_state.get(f"{_role_key(role)}_polygon_closed", False))
+
+
+def _set_circle_from_click(role: str, click: dict[str, object], radius: float, image_shape: tuple[int, int]) -> None:
+    roi = _click_to_circular_roi(click, radius, image_shape)
+    key_prefix = _role_key(role)
+    st.session_state[f"{key_prefix}_center_x"] = roi.center_x
+    st.session_state[f"{key_prefix}_center_y"] = roi.center_y
+    st.session_state[f"{key_prefix}_radius"] = roi.radius
+
+
+def _append_polygon_click(role: str, click: dict[str, object], image_shape: tuple[int, int]) -> None:
+    key_prefix = _role_key(role)
+    st.session_state[f"{key_prefix}_polygon_points"] = _add_polygon_point(_polygon_points_for_role(role), click, image_shape)
+    st.session_state[f"{key_prefix}_polygon_closed"] = False
+
+
+def _render_preview_and_roi_drawing(
+    files: list[Path],
+    post_bleach_frame: int,
+    normalize_by_cell: bool,
+    roi_sources: dict[str, str],
+) -> tuple[int | None, tuple[int, int] | None]:
+    if not files:
+        st.info("Select at least one dataset to preview images and draw ROIs.")
+        return None, None
+
+    try:
+        frame_count, height, width = _preview_stack_shape(files[0])
+    except Exception as exc:
+        st.warning(f"Could not load preview image: {exc}")
+        return None, None
+
+    default_frame = min(max(int(post_bleach_frame), 1), frame_count)
+    frame_number = st.slider(
+        "Preview frame",
+        min_value=1,
+        max_value=frame_count,
+        value=default_frame,
+        step=1,
+    )
+    image_shape = (height, width)
+
+    try:
+        preview_rgb = _contrast_preview_frame(_preview_frame(files[0], frame_number - 1))
+    except Exception as exc:
+        st.warning(f"Could not render preview image: {exc}")
+        return frame_number - 1, image_shape
+
+    circular_rois: dict[str, CircularROI] = {}
+    polygon_points: dict[str, list[tuple[float, float]]] = {}
+    closed_polygons: dict[str, bool] = {}
+    for role, source in roi_sources.items():
+        if source in {ROI_SOURCE_CIRCULAR, ROI_SOURCE_DRAW_CIRCLE}:
+            key_prefix = _role_key(role)
+            circular_rois[role] = CircularROI(
+                center_x=float(st.session_state.get(f"{key_prefix}_center_x", 256.0)),
+                center_y=float(st.session_state.get(f"{key_prefix}_center_y", 23.0 if role == "bleach" else 256.0)),
+                radius=float(st.session_state.get(f"{key_prefix}_radius", 9.0 if role == "bleach" else 150.0)),
+            )
+        elif source == ROI_SOURCE_DRAW_POLYGON:
+            polygon_points[role] = _polygon_points_for_role(role)
+            closed_polygons[role] = _polygon_closed_for_role(role)
+
+    overlay = _overlay_roi_preview(
+        preview_rgb,
+        circular_rois=circular_rois,
+        polygon_points=polygon_points,
+        closed_polygons=closed_polygons,
+        masks={},
+    )
+
+    roles = ["bleach"]
+    if normalize_by_cell:
+        roles.append("cell")
+    active_role = st.radio("Active ROI", roles, horizontal=True, key="active_roi_role")
+    active_source = roi_sources.get(active_role, ROI_SOURCE_CIRCULAR)
+
+    click = None
+    if streamlit_image_coordinates is None:
+        st.image(overlay, caption=files[0].name)
+        st.warning(
+            "Install the app extra with streamlit-image-coordinates to draw ROIs on the preview."
+        )
+    else:
+        click = streamlit_image_coordinates(overlay, key="roi_preview_coordinates")
+
+    if click and active_source in {ROI_SOURCE_DRAW_CIRCLE, ROI_SOURCE_DRAW_POLYGON}:
+        token = (active_role, click.get("x"), click.get("y"), click.get("time"))
+        if st.session_state.get("last_roi_click_token") != token:
+            if active_source == ROI_SOURCE_DRAW_CIRCLE:
+                radius = float(st.session_state.get(f"{_role_key(active_role)}_radius", 9.0))
+                _set_circle_from_click(active_role, click, radius, image_shape)
+            else:
+                _append_polygon_click(active_role, click, image_shape)
+            st.session_state["last_roi_click_token"] = token
+            st.rerun()
+
+    return frame_number - 1, image_shape
 
 
 def main() -> None:
@@ -444,6 +757,7 @@ def main() -> None:
             "Bleach",
             default_radius=9.0,
             allow_saved_mask=model_key != "diffusion",
+            allow_polygon=model_key != "diffusion",
         )
 
         st.header("Analysis")
@@ -459,7 +773,7 @@ def main() -> None:
             cell_source, cell_circle, cell_upload = _render_roi_controls("Cell", default_radius=150.0)
 
         if model_key == "diffusion":
-            circular_bleach = bleach_source == "Circular numeric ROI"
+            circular_bleach = bleach_source in {ROI_SOURCE_CIRCULAR, ROI_SOURCE_DRAW_CIRCLE}
             use_adjacent_roi = st.checkbox("Adjacent ROI correction", value=False, disabled=not circular_bleach)
             adjacent_offset = st.slider("Adjacent ROI offset", min_value=1.0, max_value=5.0, value=2.5, step=0.1)
             max_profile_radius = st.number_input("Max profile radius (um)", min_value=0.0, value=0.0, step=0.5)
@@ -484,6 +798,16 @@ def main() -> None:
 
         run_requested = st.button("Run analysis", type="primary", icon=":material/play_arrow:")
 
+    roi_sources = {"bleach": bleach_source}
+    if normalize_by_cell and cell_source is not None:
+        roi_sources["cell"] = cell_source
+    preview_frame_index, preview_image_shape = _render_preview_and_roi_drawing(
+        selected_files,
+        int(post_bleach_frame),
+        normalize_by_cell,
+        roi_sources,
+    )
+
     if run_requested:
         if not selected_files:
             st.error("Select at least one dataset.")
@@ -496,6 +820,9 @@ def main() -> None:
                 bleach_upload,
                 "bleach",
                 "bleach ROI",
+                polygon_points=_polygon_points_for_role("bleach"),
+                image_shape=preview_image_shape,
+                polygon_closed=_polygon_closed_for_role("bleach"),
             )
             cell_roi = None
             if normalize_by_cell:
@@ -505,6 +832,9 @@ def main() -> None:
                     cell_upload,
                     "cell",
                     "cell ROI",
+                    polygon_points=_polygon_points_for_role("cell"),
+                    image_shape=preview_image_shape,
+                    polygon_closed=_polygon_closed_for_role("cell"),
                 )
 
             profile_limit = max_profile_radius if max_profile_radius > 0 else None
@@ -550,6 +880,40 @@ def main() -> None:
         st.session_state["fit_result"] = result
         st.session_state["fit_model"] = model_key
         st.session_state["fit_warnings"] = [str(warning.message) for warning in caught]
+        roi_masks = {}
+        if preview_image_shape is not None:
+            if isinstance(bleach_roi, np.ndarray):
+                roi_masks["bleach"] = bleach_roi
+            else:
+                roi_masks["bleach"] = bleach_roi(preview_image_shape)
+            if normalize_by_cell and cell_roi is not None:
+                if isinstance(cell_roi, np.ndarray):
+                    roi_masks["cell"] = cell_roi
+                else:
+                    roi_masks["cell"] = cell_roi(preview_image_shape)
+
+        st.session_state["fit_context"] = {
+            "model": model_key,
+            "files": [path.resolve() for path in selected_files],
+            "settings": {
+                "post_bleach_frame": int(post_bleach_frame),
+                "pre_bleach_count": int(pre_bleach_count),
+                "background": float(background),
+                "normalize_by_cell": bool(normalize_by_cell),
+                "use_adjacent_roi": bool(use_adjacent_roi),
+                "adjacent_offset": float(adjacent_offset),
+                "max_profile_radius": None if max_profile_radius <= 0 else float(max_profile_radius),
+            },
+            "roi_sources": roi_sources,
+            "fit_mode": fit_mode,
+            "roi_masks": roi_masks,
+            "roi_extra_metadata": {
+                "frame_index": preview_frame_index,
+                "roi_source": roi_sources,
+                "model": model_key,
+                "created_by": "frap-toolbox-app",
+            },
+        }
 
     result = st.session_state.get("fit_result")
     if result is None:
@@ -576,6 +940,32 @@ def main() -> None:
         with st.expander("Warnings"):
             for warning in warnings_out:
                 st.write(warning)
+
+    with st.expander("Export"):
+        default_output = Path.cwd() / "frap-toolbox-output"
+        output_dir = Path(st.text_input("Output directory", value=str(default_output))).expanduser()
+        if st.button("Write export bundle"):
+            context = st.session_state.get("fit_context")
+            if context is None:
+                st.error("Run an analysis before exporting.")
+            else:
+                try:
+                    paths = write_analysis_bundle(
+                        output_dir,
+                        result,
+                        model=context["model"],
+                        files=context["files"],
+                        settings=context["settings"],
+                        roi_sources=context["roi_sources"],
+                        fit_mode=context["fit_mode"],
+                        roi_masks=context["roi_masks"],
+                        roi_extra_metadata=context["roi_extra_metadata"],
+                    )
+                except Exception as exc:
+                    st.error(str(exc))
+                else:
+                    st.success(f"Wrote export bundle to {output_dir}")
+                    st.write({name: str(path) for name, path in paths.items()})
 
 
 if __name__ == "__main__":

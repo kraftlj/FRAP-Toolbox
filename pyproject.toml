@@ -52,7 +52,8 @@ test = [
   "httpx>=0.27"
 ]
 app = [
-  "streamlit>=1.51"
+  "streamlit>=1.51",
+  "streamlit-image-coordinates>=0.4,<0.5"
 ]
 cloud-api = [
   "fastapi>=0.115",
@@ -72,10 +73,12 @@ cloud = [
 ]
 app-nd2 = [
   "streamlit>=1.51",
+  "streamlit-image-coordinates>=0.4,<0.5",
   "bioio-nd2>=1.7"
 ]
 app-full = [
   "streamlit>=1.51",
+  "streamlit-image-coordinates>=0.4,<0.5",
   "bioio-nd2>=1.7",
   "bioio-bioformats>=2.0",
   "aicsimageio>=4.10"

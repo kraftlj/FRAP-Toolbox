@@ -390,6 +390,7 @@ def load_diffusion_datasets(
                 "reader_backend": reader_backend,
                 "time_source": time_source,
                 "voxel_source": voxel_source,
+                "image_shape": tuple(int(value) for value in image_shape),
             },
         )
         datasets.append(dataset)
@@ -480,6 +481,7 @@ def load_reaction_datasets(
                     "reader_backend": reader_backend,
                     "time_source": time_source,
                     "voxel_source": voxel_source,
+                    "image_shape": tuple(int(value) for value in image_shape),
                 },
             )
         )

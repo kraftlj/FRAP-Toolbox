@@ -9,10 +9,17 @@ import pytest
 from frap_toolbox_py.app import (
     SOFTWARE_AUTHORS,
     SOFTWARE_CITATION,
+    ROI_SOURCE_DRAW_POLYGON,
+    _add_polygon_point,
     _build_inputs,
+    _click_to_circular_roi,
+    _clear_polygon_points,
+    _contrast_preview_frame,
     _default_fit_mode,
     _load_mask_array,
+    _polygon_points_to_mask,
     _resolve_roi,
+    _undo_polygon_point,
 )
 from frap_toolbox_py.roi import CircularROI, save_roi_masks
 
@@ -112,3 +119,72 @@ def test_resolve_circular_roi_returns_mask_factory_and_cli_definition():
     assert roi_mode == 1
     assert roi_definition == (5.0, 6.0, 3.0)
     assert factory((12, 12)).any()
+
+
+def test_preview_frame_contrast_returns_rgb_uint8_image():
+    frame = np.asarray([[0.0, 5.0], [10.0, 20.0]])
+
+    preview = _contrast_preview_frame(frame)
+
+    assert preview.shape == (2, 2, 3)
+    assert preview.dtype == np.uint8
+    assert preview.max() > preview.min()
+
+
+def test_click_to_circular_roi_uses_one_based_center_coordinates():
+    roi = _click_to_circular_roi({"x": 0, "y": 3}, radius=4.0, image_shape=(10, 10))
+
+    assert roi.center_x == pytest.approx(1.0)
+    assert roi.center_y == pytest.approx(4.0)
+    assert roi.radius == pytest.approx(4.0)
+
+
+def test_polygon_point_helpers_add_undo_and_clear_points():
+    points = _add_polygon_point([], {"x": 1, "y": 2}, (8, 8))
+    points = _add_polygon_point(points, {"x": 10, "y": -2}, (8, 8))
+
+    assert points == [(1.0, 2.0), (7.0, 0.0)]
+    assert _undo_polygon_point(points) == [(1.0, 2.0)]
+    assert _clear_polygon_points() == []
+
+
+def test_polygon_points_to_mask_validates_minimum_points_and_shape():
+    with pytest.raises(ValueError, match="at least three"):
+        _polygon_points_to_mask([(1.0, 1.0), (2.0, 2.0)], (6, 6))
+
+    mask = _polygon_points_to_mask([(1.0, 1.0), (4.0, 1.0), (1.0, 4.0)], (6, 6))
+
+    assert mask.shape == (6, 6)
+    assert mask.dtype == np.bool_
+    assert mask.any()
+
+
+def test_resolve_polygon_roi_returns_user_defined_mask():
+    mask, roi_mode, roi_definition = _resolve_roi(
+        ROI_SOURCE_DRAW_POLYGON,
+        None,
+        None,
+        "bleach",
+        "bleach ROI",
+        polygon_points=[(1.0, 1.0), (4.0, 1.0), (1.0, 4.0)],
+        image_shape=(6, 6),
+    )
+
+    assert roi_mode == 2
+    assert roi_definition == ()
+    assert mask.shape == (6, 6)
+    assert mask.any()
+
+
+def test_resolve_polygon_roi_requires_explicit_close():
+    with pytest.raises(ValueError, match="Close the bleach ROI polygon"):
+        _resolve_roi(
+            ROI_SOURCE_DRAW_POLYGON,
+            None,
+            None,
+            "bleach",
+            "bleach ROI",
+            polygon_points=[(1.0, 1.0), (4.0, 1.0), (1.0, 4.0)],
+            image_shape=(6, 6),
+            polygon_closed=False,
+        )
