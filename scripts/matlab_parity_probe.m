@@ -447,6 +447,7 @@ if isempty(lines)
     error('Parameter table is empty: %s', path);
 end
 headers = splitTabLine(lines{1});
+headers = cleanTextCells(headers);
 names = {};
 values = [];
 for idx = 2:numel(lines)
@@ -463,7 +464,7 @@ for idx = 2:numel(lines)
             end
         end
     end
-    names{end + 1} = strtrim(cells{1}); %#ok<AGROW>
+    names{end + 1} = cleanText(cells{1}); %#ok<AGROW>
     values(end + 1, :) = row; %#ok<AGROW>
 end
 table.headers = headers(2:end);
@@ -487,8 +488,8 @@ for idx = 1:numel(lines)
         end
     end
     vectorIdx = numel(vectors) + 1;
-    vectors(vectorIdx).name = strtrim(cells{1});
-    vectors(vectorIdx).label = strtrim(cells{2});
+    vectors(vectorIdx).name = cleanText(cells{1});
+    vectors(vectorIdx).label = cleanText(cells{2});
     vectors(vectorIdx).values = values;
 end
 end
@@ -511,9 +512,23 @@ function cells = splitTabLine(line)
 cells = regexp(line, '\t', 'split');
 end
 
+function cells = cleanTextCells(cells)
+for idx = 1:numel(cells)
+    cells{idx} = cleanText(cells{idx});
+end
+end
+
+function text = cleanText(text)
+text = strtrim(text);
+if ~isempty(text) && double(text(1)) == 65279
+    text = text(2:end);
+    text = strtrim(text);
+end
+end
+
 function value = getTableValue(table, rowName, headerName)
-rowIdx = find(strcmp(table.names, rowName), 1);
-colIdx = find(strcmp(table.headers, headerName), 1);
+rowIdx = findTextIndex(table.names, rowName);
+colIdx = findTextIndex(table.headers, headerName);
 if isempty(rowIdx)
     error('Missing row %s in parameter table.', rowName);
 end
@@ -526,12 +541,24 @@ end
 function values = getVector(vectors, rowName, label)
 values = [];
 for idx = 1:numel(vectors)
-    if strcmp(vectors(idx).name, rowName) && strcmp(vectors(idx).label, label)
+    if strcmpi(cleanText(vectors(idx).name), cleanText(rowName)) ...
+            && strcmpi(cleanText(vectors(idx).label), cleanText(label))
         values = vectors(idx).values;
         return;
     end
 end
 error('Missing vector row: %s / %s', rowName, label);
+end
+
+function idx = findTextIndex(values, target)
+idx = [];
+target = cleanText(target);
+for valueIdx = 1:numel(values)
+    if strcmpi(cleanText(values{valueIdx}), target)
+        idx = valueIdx;
+        return;
+    end
+end
 end
 
 function copied = copyOptionalReactionExports(outputDir, repoRoot)
