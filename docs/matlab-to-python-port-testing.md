@@ -111,6 +111,24 @@ photodecay correction from normalized FRAP, now gives:
 | Venus Cytoplasm | 35.6650 | 35.6442 | -0.058% | 0.4662 | 0.840538 | 0.840525 |
 | Venus-ATG5 Cytoplasm | 10.3752 | 10.3781 | +0.028% | 0.0063 | 0.820940 | 0.820940 |
 
+A remote MATLAB R2026a probe confirmed that current MATLAB default
+`lsqcurvefit` reproduces the guide D/MF shoulder points for the largest Venus
+Cytoplasm gaps when driven directly from the exported vectors. MATLAB stopped
+with exit flag `3` after 2-3 iterations because the relative change in residual
+sum of squares was below `FunctionTolerance = 1e-6`, even though the global
+objective profile remains lower at higher D:
+
+| Dataset | Guide D | R2026a D | Guide MF | R2026a MF | Exit flag | Iterations | R2026a SS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `Venus_Cytoplasm_3.lsm` | 34.7806 | 34.7805966 | 0.795314 | 0.7953138 | 3 | 3 | `1.730022e-06` |
+| `Venus_Cytoplasm_5.lsm` | 35.1196 | 35.1195862 | 0.808686 | 0.8086854 | 3 | 3 | `1.995470e-06` |
+| `Venus_Cytoplasm_9.lsm` | 24.7671 | 24.7671242 | 0.873840 | 0.8738397 | 3 | 2 | `6.769451e-07` |
+
+The same probe reported MATLAB R2026a Optimization Toolbox `26.1`, Image
+Processing Toolbox `26.1`, default `Algorithm: trust-region-reflective`,
+`TolFun: 1e-6`, `TolX: 1e-6`, `FinDiffType: forward`, and `TypicalX:
+ones(numberofvariables,1)`.
+
 ## Practical Outcomes
 
 - The Python implementation is faithful to MATLAB's model; the large Venus

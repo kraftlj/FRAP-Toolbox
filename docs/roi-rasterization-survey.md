@@ -57,12 +57,50 @@ All counts are compared against the inferred 252-pixel MATLAB guide mask.
 | Pillow `ImageDraw.ellipse` best bounding box | 277 | 2 | 27 | 29 |
 | OpenCV `fillPoly` with fixed-point MATLAB circle polygon | 277 | 4 | 29 | 33 |
 
+## Remote MATLAB R2026a Probe
+
+A remote MATLAB R2026a probe recreated `ROIinitialization_Diffusion.m` directly
+with `x0=256`, `y0=23`, `R0=9`, `t = 0:pi/20:2*pi`, and
+`poly2mask(xi, yi, 512, 512)`. That modern MATLAB mask had 251 pixels, not the
+252-pixel mask inferred from the original exported Raw FRAP vector. It differed
+from the inferred guide mask by 23 pixels total: 12 target pixels missing and
+11 extra pixels.
+
+The R2026a bleach-mask row intervals were:
+
+| Row | Columns |
+| --- | --- |
+| 15 | 252-260 |
+| 16 | 251-261 |
+| 17 | 250-262 |
+| 18 | 249-263 |
+| 19 | 248-264 |
+| 20 | 248-264 |
+| 21 | 248-264 |
+| 22 | 248-264 |
+| 23 | 248-265 |
+| 24 | 248-264 |
+| 25 | 248-264 |
+| 26 | 248-264 |
+| 27 | 248-264 |
+| 28 | 249-263 |
+| 29 | 250-262 |
+| 30 | 251-261 |
+| 31 | 252-260 |
+| 32 | 256-256 |
+
 ## Conclusion
 
 OpenCV is not a drop-in fix for this parity gap. Its filled circle and polygon
 scan-conversion behavior is useful for modern image processing, but the tested
 variants do not reproduce the MATLAB `poly2mask` mask implied by the guide
 exports.
+
+The R2026a probe also rules out current MATLAB `poly2mask` as an exact
+drop-in target for the archived guide export. The remaining possibilities are a
+historical `poly2mask` behavior difference, a subtle GUI/input-coordinate
+difference in the archived run, or another saved-analysis artifact not captured
+by the public test data.
 
 The next production-quality path is to implement and test a MATLAB-compatible
 polygon scan conversion mode for circular diffusion and FRAP-FRET ROIs. The

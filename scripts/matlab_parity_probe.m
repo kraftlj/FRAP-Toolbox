@@ -14,6 +14,9 @@ outputDir = fullfile(repoRoot, 'scratch', 'matlab-parity-output');
 ensureDir(outputDir);
 
 diaryPath = fullfile(outputDir, 'matlab_parity_probe_console.txt');
+if exist(diaryPath, 'file') == 2
+    delete(diaryPath);
+end
 diary(diaryPath);
 cleanup = onCleanup(@() diary('off')); %#ok<NASGU>
 

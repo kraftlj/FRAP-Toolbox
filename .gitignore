@@ -25,6 +25,7 @@ scratch/
 
 hs_err_pid*.log
 exports/
+frap-toolbox-output/
 cli_output.txt
 python_out.txt
 fit_results*.txt
