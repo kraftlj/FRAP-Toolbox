@@ -45,7 +45,7 @@ MODEL_INDEX = {
     "reaction2": 3,
 }
 DEFAULT_MODEL_DIRS = {
-    "diffusion": ("test-data", "Diffusion"),
+    "diffusion": ("sample-data", "Diffusion"),
     "reaction1": ("test-data", "Reaction 1"),
     "reaction2": ("test-data", "Reaction 2"),
 }
@@ -67,7 +67,7 @@ SOFTWARE_AUTHORS = (
 SOFTWARE_CITATION = (
     "Kraft LJ, Dowler J, Day CA, Kang M, Kenworthy AK. (2014). "
     "FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching. "
-    "http://www.fraptoolbox.com (accessed Month Day, Year)."
+    "https://github.com/kraftlj/FRAP-Toolbox (accessed Month Day, Year)."
 )
 
 MaskSource = Union[BinaryIO, Path, str]

@@ -41,8 +41,9 @@ It should contain:
    cd FRAP-Toolbox
    ```
 
-2. Download and place the large fixture folder at repo root as `test-data/`.
-   The expected layout includes:
+2. Download the Zenodo archive
+   [FRAP-Toolbox Legacy User Guide Test Data](https://doi.org/10.5281/zenodo.20344310)
+   and unpack it at repo root as `test-data/`. The expected layout includes:
 
    ```text
    test-data/Userguide.pdf
@@ -131,7 +132,8 @@ exact raw ND2 reaction parity.
 You are helping diagnose MATLAB-to-Python parity for FRAP-Toolbox.
 
 Repo: https://github.com/kraftlj/FRAP-Toolbox
-After cloning, place the downloaded large fixture folder at repo root as `test-data/`.
+After cloning, download https://doi.org/10.5281/zenodo.20344310 and unpack it
+at repo root as `test-data/`.
 
 Read these files first:
 - docs/matlab-to-python-port-testing.md

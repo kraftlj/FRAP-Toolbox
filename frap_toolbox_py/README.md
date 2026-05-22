@@ -74,14 +74,17 @@ Current ROI options:
 
 ## 5. Recommended test dataset parameters
 The original MATLAB user guide documents parameters for the Zeiss LSM diffusion
-datasets used during port validation. If you have the local `test-data/` folder
-available, use:
+datasets used during port validation. A single raw sample is tracked at
+`sample-data/Diffusion/Venus_Cytoplasm_1.lsm`; the full ignored `test-data/`
+archive is published on Zenodo at
+<https://doi.org/10.5281/zenodo.20344310> and described in
+`docs/data-availability.md`. Use:
 - ROI center: `(256, 23)`
 - ROI radius: `9`
 - Post-bleach frame: `21`
 - Pre-bleach frames for normalization: `10`
 - Background intensity: `0`
-- Enable corrected mobile fraction by using an adjacent ROI (2.5× radius offset)
+- Enable corrected mobile fraction by using an adjacent ROI (2.5x radius offset)
 
 ## 6. Run the CLI
 All commands assume the project root as the working directory and the virtual environment
@@ -89,7 +92,7 @@ is active.
 
 Single stack:
 ```bash
-frap-toolbox test-data/Diffusion/Venus_Cytoplasm_1.lsm \
+frap-toolbox sample-data/Diffusion/Venus_Cytoplasm_1.lsm \
   --roi 256 23 9 \
   --post-bleach-frame 21 \
   --pre-bleach-count 10 \
@@ -97,8 +100,8 @@ frap-toolbox test-data/Diffusion/Venus_Cytoplasm_1.lsm \
   --use-adjacent-roi
 ```
 
-Batch the local Zeiss diffusion stacks, if you have the ignored `test-data/`
-fixtures in your checkout:
+Batch the local Zeiss diffusion stacks after downloading the Zenodo archive and
+unpacking it at the repository root as `test-data/`:
 ```bash
 frap-toolbox test-data/Diffusion/Venus_Cytoplasm_*.lsm \
   --roi 256 23 9 \

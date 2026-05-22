@@ -43,7 +43,7 @@ def test_app_attribution_uses_five_author_software_order():
     assert SOFTWARE_CITATION == (
         "Kraft LJ, Dowler J, Day CA, Kang M, Kenworthy AK. (2014). "
         "FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching. "
-        "http://www.fraptoolbox.com (accessed Month Day, Year)."
+        "https://github.com/kraftlj/FRAP-Toolbox (accessed Month Day, Year)."
     )
 
 

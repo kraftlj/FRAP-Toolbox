@@ -13,12 +13,12 @@ from frap_toolbox_py.roi import CircularROI, adjacent_circle
 from frap_toolbox_py.types import BasicInputs
 
 
-SAMPLE_PATH = Path("test-data/Diffusion/Venus_Cytoplasm_1.lsm")
+SAMPLE_PATH = Path("sample-data/Diffusion/Venus_Cytoplasm_1.lsm")
 
 
 def test_lsm_metadata_flow():
     if not SAMPLE_PATH.exists():
-        pytest.skip("LSM integration fixture is not present in this checkout.")
+        pytest.skip("Tracked LSM smoke-test sample is not present in this checkout.")
 
     sample_path = SAMPLE_PATH.resolve()
     bleach_roi = CircularROI(256.0, 23.0, 9.0)

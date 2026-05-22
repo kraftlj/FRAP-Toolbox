@@ -1,9 +1,9 @@
 # Developer Setup, CI, and Packaging
 
 This project is in transition from the original MATLAB application to a modern
-Python package. Keep public CI lightweight and reproducible, and keep large
-microscopy fixtures local unless the project later adopts an explicit fixture
-distribution mechanism.
+Python package. Keep public CI lightweight and reproducible. The repository
+tracks one raw microscopy sample under `sample-data/`; the full legacy fixture
+archive remains external and is documented in `docs/data-availability.md`.
 
 ## Supported Python Versions
 
@@ -56,6 +56,7 @@ The GitHub Actions workflow in `.github/workflows/python-tests.yml` runs on a
 clean checkout where `test-data/` is absent. This is intentional:
 
 - microscopy fixtures are large and ignored by git;
+- the tracked `sample-data/` file is available for smoke coverage;
 - tests that require them must call `pytest.skip` when files are absent;
 - unit and synthetic regression tests should still run normally;
 - packaging checks build the source distribution and wheel, then run
@@ -71,9 +72,11 @@ python -m pip check
 
 ## Local MATLAB Parity Tests
 
-If you have the ignored `test-data/` archive beside the repository root, pytest
-will automatically run the guide-derived parity tests. The local archive should
-contain at least:
+If you have restored the ignored `test-data/` archive beside the repository
+root, pytest will automatically run the guide-derived parity tests. Download the
+external archive from the Zenodo record
+[FRAP-Toolbox Legacy User Guide Test Data](https://doi.org/10.5281/zenodo.20344310),
+then verify it against `docs/data-availability.md`. It should contain at least:
 
 - `test-data/Userguide.pdf`
 - `test-data/Diffusion/*_Diffusion_Fit_Parameters.txt`
