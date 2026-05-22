@@ -1,11 +1,62 @@
 FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching
 ============
-Lewis J. Kraft, Jacob Dowler, and Anne K. Kenworthy
+Lewis J. Kraft, Jacob Dowler, Charles A. Day, Minchul Kang, and Anne K. Kenworthy
 Vanderbilt University Medical Center, Nashville TN
+
+# Modern Python Port
+
+This repository now contains both the legacy MATLAB FRAP-Toolbox source and a
+modern Python package under `frap_toolbox_py/`. The Python port is
+the active modernization target for BioIO-backed image loading, reproducible
+command-line analysis, Streamlit app deployment, and MATLAB parity tests.
+
+Quick start for the Python package:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[test]"
+python -m pytest -q
+```
+
+Install optional pieces only when needed:
+
+- `python -m pip install -e ".[app]"` for the local Streamlit app.
+- `python -m pip install -e ".[nd2]"` for Nikon ND2 files through BioIO.
+- `python -m pip install -e ".[bioformats]"` for Bio-Formats-backed readers.
+- `python -m pip install -e ".[legacy-io]"` for the AICSImageIO fallback path.
+
+Large microscopy fixtures are intentionally not committed. Tests that require
+the local `test-data/` archive skip automatically on a clean public checkout;
+see `docs/developer-setup.md` for everyday CI checks and optional parity runs.
+
+# Documentation
+
+- The current GitHub user guide for both the modern Python tools and legacy
+  MATLAB workflow lives at [`docs/user-guide/`](docs/user-guide/).
+- Sample-data and full fixture archive policy lives in
+  [`docs/data-availability.md`](docs/data-availability.md).
+- Python port setup and CLI/app usage live in
+  [`frap_toolbox_py/README.md`](frap_toolbox_py/README.md).
+- Developer setup, parity testing, deployment, and ROI-mask notes live under
+  [`docs/`](docs/).
+
+# Data Availability
+
+The repository tracks one small raw microscopy sample for demos and smoke tests:
+[`sample-data/Diffusion/Venus_Cytoplasm_1.lsm`](sample-data/Diffusion/Venus_Cytoplasm_1.lsm).
+
+The full legacy user-guide fixture archive is about 1.2 GB and remains outside
+git. Download the published Zenodo archive
+[`FRAP-Toolbox Legacy User Guide Test Data`](https://doi.org/10.5281/zenodo.20344310)
+and unpack it at the repository root to restore `test-data/`. The full archive
+manifest and checksum details live in
+[`docs/data-availability.md`](docs/data-availability.md).
 
 # FRAP-Toolbox Website Content
 
-This Markdown file reproduces the informational content from the legacy FRAP-Toolbox website so it can live in a GitHub repository. Use the table of contents below to navigate the sections.
+This Markdown file reproduces the informational content from the legacy FRAP-Toolbox website so it can live in a GitHub repository. Use the table of contents below to navigate the sections. For the modernized user guide, see [`docs/user-guide/`](docs/user-guide/).
 
 ## Table of Contents
 - [Home](#home)
@@ -30,6 +81,31 @@ FRAP-Toolbox is software for the analysis of Fluorescence Recovery After Photobl
 - Guidance for developers who want to extend the toolbox.
 - Examples of recent scientific applications that rely on the included models.
 
+### Modern Python app
+The repository includes a modern Python port with a local Streamlit app and CLI.
+For ND2-based local analysis, create a virtual environment and install:
+
+```bash
+python -m pip install -e ".[app-nd2,test]"
+frap-toolbox-app
+```
+
+The app can select diffusion, Reaction 1, or Reaction 2 models, run circular numeric ROI
+analyses, and load saved binary ROI masks. See `frap_toolbox_py/README.md` and
+`docs/app-deployment.md` for the current app workflow and remaining hand-drawn ROI plan.
+
+### Cloud-first web pilot
+The modern cloud path is now scaffolded alongside the local app. It includes a
+responsive TypeScript client in `web/`, a FastAPI Cloud Run API in
+`frap_toolbox_py.cloud.backend`, and a Google Batch worker entrypoint,
+`frap-toolbox-run`, that consumes run manifests from object storage. The intended
+workflow is sequencing-style: pilot users sign in, upload large microscopy files
+directly to GCS with resumable upload sessions, draw/select ROIs in the browser,
+and run the existing Python analysis engine in a container near the data.
+
+See `docs/cloud-first-web-app.md` for local development, deployment environment
+variables, Docker images, storage layout, and the retained-raw-data pilot policy.
+
 ## About
 ### History
 FRAP-Toolbox was developed to make quantitative FRAP analysis accessible to the broader research community. The project grew out of a collaboration between Anne Kenworthy's research group and biomathematicians led by Emmanuele DiBenedetto, funded by the National Science Foundation.
@@ -43,7 +119,7 @@ Researchers should be able to apply established FRAP analysis methods to their o
 If you cite FRAP-Toolbox, please use:
 
 ```
-Kraft, LJ, Dowler J, Kenworthy AK. (2014). Frap-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching. http://www.fraptoolbox.com (accessed Month Day, Year)
+Kraft LJ, Dowler J, Day CA, Kang M, Kenworthy AK. (2014). FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching. https://github.com/kraftlj/FRAP-Toolbox (accessed Month Day, Year).
 ```
 
 ### License
@@ -55,20 +131,23 @@ FRAP-Toolbox is open source and released under the [GNU General Public License](
 - Email [Anne Kenworthy](mailto:anne.kenworthy@vanderbilt.edu) with additional comments or feedback.
 
 ## Downloads
-### Standalone packages (no MATLAB Compiler Runtime included)
+### Standalone packages
 
-| Client      | File name                     | Size   |
-|-------------|------------------------------:|-------:|
-| Windows x32 | `DownloadFiles/FRAP-Toolbox_x32_v1.1.zip` | 7.9 MB |
-| Windows x64 | `DownloadFiles/FRAP-Toolbox_x64_v1.1.zip` | 18.8 MB |
-| macOS x64   | `DownloadFiles/FRAP-Toolbox_MAC_v1.1.zip` | 609 MB |
+Legacy standalone packages were previously distributed through the project
+website. The active source home is now this GitHub repository:
+<https://github.com/kraftlj/FRAP-Toolbox>. Future binary archives should be
+published through GitHub releases or cited dataset records rather than committed
+to the repository.
 
 ### Source files
 You can also run FRAP-Toolbox with a full MATLAB installation by cloning the source code from GitHub: <https://github.com/kraftlj/FRAP-Toolbox>.
 
 ### Installation and documentation
 - Installation instructions and test data live in the [Getting Started](#getting-started) section.
-- A downloadable PDF user guide is available at `DownloadFiles/UserGuide.pdf`.
+- The modernized GitHub user guide for Python and legacy MATLAB workflows lives
+  at [`docs/user-guide/`](docs/user-guide/).
+- The original PDF user guide has been recreated in Markdown at
+  [`docs/user-guide/`](docs/user-guide/).
 
 ### Legacy versions
 Previous releases are archived on the [FRAP-Toolbox archive](#archive) page.
@@ -93,7 +172,7 @@ Refer to the [MATLAB 2013 system requirements](http://www.mathworks.com/support/
 #### Running the source code
 1. Open MATLAB.
 2. Navigate to the `FRAP-Toolbox` directory that contains the source files.
-3. Open and run `MainGUI.m`.
+3. Open and run `Main_GUI.m`.
 
 #### Installing the standalone application
 ##### Windows instructions
@@ -117,29 +196,23 @@ Refer to the [MATLAB 2013 system requirements](http://www.mathworks.com/support/
 > Note: As on Windows, make sure the path to `loci_tools.jar` in `classpath.txt` matches the actual file location.
 
 ### Overview of the software
-![FRAP-Toolbox overview](Images/FRAP%20Toolbox%20Overview.jpg)
-
 The main window collects the essential inputs needed to analyze FRAP datasets. Users choose a directory containing raw data files, select one or more datasets, pick the analysis model, define the bleach geometry, indicate the frame number of the bleaching event, provide a background intensity, decide whether to normalize by the whole cell, and choose how many pre-bleach images to use.
 
 From the main window, users can preview the first dataset before proceeding to data fitting.
+
+For the full modernized user guide, including the preserved legacy walkthrough
+and figure legends, see [`docs/user-guide/`](docs/user-guide/).
 
 ### Supported image formats
 FRAP-Toolbox integrates with [Bio-Formats](http://www.openmicroscopy.org/site/support/bio-formats4/supported-formats.html), a Java library for life-science image file formats. Verified formats include `.lsm` and `.nd2` files from Zeiss and Nikon microscopes.
 
 ### Using FRAP-Toolbox
-![Main GUI (Figure 1)](Images/Figure1%20MainGUI_Diffusion.jpg)
-
 - The main window lists available datasets and displays the inputs described above.
 - Previewing a dataset (Figure 2) loads the image stack, provides a scrubber to browse time points, and overlays the bleaching ROI.
 - Proceeding to data analysis loads all datasets through Bio-Formats and opens the analysis window (Figure 3). Users can set initial guesses, parameter bounds, and exclude points.
 
-![Preview window (Figure 2)](Images/Figure2%20ImagePreview_Diffusion.jpg)
-![Analysis window (Figure 3)](Images/Figure3%20DataAnalysis_Diffusion_after.jpg)
-
 #### Data presentation
 Running the fit produces diagnostic plots (Figure 4) showing initial conditions, FRAP curves, fits, and residuals. Optimized parameters populate a table and can be saved, along with raw and processed data, as tab-delimited text files.
-
-![Results inspection (Figure 4)](Images/Figure4%20ResultsInspection_Diffusion.jpg)
 
 ### Considerations for designing FRAP experiments
 #### Diffusion model requirements
@@ -297,7 +370,7 @@ Fully documented examples and datasets accompany each model.
 ### Diffusion model workflow
 Using a Zeiss LSM 510 confocal microscope, a 1 um circular region in the cytoplasm of HeLa cells expressing Venus or Venus-ATG5 was photobleached.
 
-1. Download the datasets at `DownloadFiles/Diffusion.zip`.
+1. For a one-file smoke test, use the tracked `sample-data/Diffusion/Venus_Cytoplasm_1.lsm` file. For the full original dataset set, restore the external `test-data/` archive described in [`docs/data-availability.md`](docs/data-availability.md).
 2. Open FRAP-Toolbox and select the **Diffusion** model.
 3. Choose **Circle** for the ROI.
 4. Set the post-bleach image to `21`.
@@ -308,16 +381,16 @@ Using a Zeiss LSM 510 confocal microscope, a 1 um circular region in the cytopla
 9. Click **Next**.
 10. When prompted, provide the bleach ROI center `256 23` and radius `9`.
 11. Choose **Yes** to calculate a corrected mobile fraction.
-12. After loading, open the analysis window and configure parameters as in `Images/Table1%20Curve%20fitting%20parameters%20for%20the%20Diffusion%20test%20data.jpg`.
+12. After loading, open the analysis window and configure parameters as in [Table S1](docs/user-guide/#table-s1-curve-fitting-parameters-for-the-diffusion-test-data).
 13. Select **No** when asked to fit averaged data.
 14. Ensure all datasets remain selected and press **Run**.
-15. Review the output plots and compare optimized parameters with `Images/Table2%20Optimized%20Curve%20fitting%20parameters%20for%20the%20Diffusion%20test%20data.jpg`.
+15. Review the output plots and compare optimized parameters with [Table S2](docs/user-guide/#table-s2-optimized-curve-fitting-parameters-for-the-diffusion-test-data).
 16. Save parameters and datasets using a descriptive tag such as `Venus_Cytoplasm`. FRAP-Toolbox appends `_Diffusion_Fit_Parameters.txt`, `_Diffusion_FRAP_datasets.txt`, and `_Diffusion_Postbleach_profiles.txt` to the chosen tag.
 
 ### Reaction 1 model workflow
 HeLa cells expressing Venus were photobleached in the nucleus with a user-defined ROI using a Nikon Eclipse Ti confocal microscope.
 
-1. Download the datasets at `DownloadFiles/Reaction 1.zip`.
+1. Restore the external `test-data/` archive described in [`docs/data-availability.md`](docs/data-availability.md).
 2. Open FRAP-Toolbox and select the **Reaction 1** model.
 3. Choose **User Defined** ROI.
 4. Set the post-bleach image to `6`.
@@ -325,18 +398,18 @@ HeLa cells expressing Venus were photobleached in the nucleus with a user-define
 6. Enable whole-cell normalization.
 7. Use `5` pre-bleach images for normalization.
 8. Select datasets named `Venus_*.nd2`.
-9. Click **Next** and draw the bleach ROI as shown in `Images/SuppFigure5%20Draw%20ROIs%20ATG5.jpg` (panel A).
+9. Click **Next** and draw the bleach ROI as described in [Figure S5](docs/user-guide/#figure-s5) (panel A).
 10. Draw the whole-cell ROI (same figure, panel A).
-11. Configure parameters as in `Images/Table3%20Curve%20fitting%20parameters%20for%20the%20Reaction%201%20test%20data.jpg`.
+11. Configure parameters as in [Table S3](docs/user-guide/#table-s3-curve-fitting-parameters-for-the-reaction-1-test-data).
 12. Choose **No** when asked to fit averaged data.
 13. Ensure all datasets are selected and press **Run**.
-14. Review plots and compare optimized parameters with `Images/Table%204%20Optimized%20Curve%20fitting%20parameters%20for%20the%20Reaction%201%20test%20data..jpg`.
+14. Review plots and compare optimized parameters with [Table S4](docs/user-guide/#table-s4-optimized-curve-fitting-parameters-for-the-reaction-1-test-data).
 15. Save results with a tag such as `Venus_NCTransport`; files receive `_Reaction_Fit_Parameters.txt` and `_Reaction_FRAP_datasets.txt` suffixes.
 
 ### Reaction 2 model workflow
 HeLa cells expressing Venus-ATG5 were photobleached in the nucleus with a user-defined ROI.
 
-1. Download the datasets at `DownloadFiles/Reaction 2.zip`.
+1. Restore the external `test-data/` archive described in [`docs/data-availability.md`](docs/data-availability.md).
 2. Open FRAP-Toolbox and select the **Reaction 2** model.
 3. Choose **User Defined** ROI.
 4. Set the post-bleach image to `6`.
@@ -344,13 +417,13 @@ HeLa cells expressing Venus-ATG5 were photobleached in the nucleus with a user-d
 6. Enable whole-cell normalization.
 7. Use `5` pre-bleach images for normalization.
 8. Select datasets named `Venus-Atg5_*.nd2`.
-9. Click **Next** and draw the bleach ROI as shown in `Images/SuppFigure5%20Draw%20ROIs%20ATG5.jpg` (panel B).
+9. Click **Next** and draw the bleach ROI as described in [Figure S5](docs/user-guide/#figure-s5) (panel B).
 10. Draw the whole-cell ROI (panel B).
-11. Configure parameters as in `Images/Table%205%20Curve%20fitting%20parameters%20for%20the%20Reaction%202%20test%20data..jpg`.
+11. Configure parameters as in [Table S5](docs/user-guide/#table-s5-curve-fitting-parameters-for-the-reaction-2-test-data).
 12. Choose **Yes** when asked to fit averaged data.
 13. Confirm all datasets are selected and press **Run**.
-14. Review plots and compare optimized parameters with `Images/Table%206%20Optimized%20Curve%20fitting%20parameters%20for%20the%20Reaction%202%20test%20data..jpg`.
-15. Save outputs using a tag such as `Venus-Atg5_NCTransport`; files receive `_Reaction_Fit_Parameters.txt` and `_Reaction_FRAP_datasets.txt` suffixes.
+14. Review plots and compare optimized parameters with [Table S6](docs/user-guide/#table-s6-optimized-curve-fitting-parameters-for-the-reaction-2-test-data).
+15. Save outputs using a tag such as `Venus-Atg5_NCTransport`; the archived guide parameter export uses the `_Reaction2_Fit_Parameters.txt` suffix.
 
 ## Troubleshooting
 FRAP-Toolbox displays warning dialogs when it detects potential problems, such as mismatched acquisition settings during batch processing. If you encounter reproducible issues, gather the information outlined in the [Bug Reporting](#bug-reporting) section and contact the team.
@@ -358,8 +431,44 @@ FRAP-Toolbox displays warning dialogs when it detects potential problems, such a
 ## Developer Topics
 Interested in contributing or porting FRAP-Toolbox to Python? Reach out to the team and explore the source code on GitHub: <https://github.com/kraftlj/FRAP-Toolbox>.
 
+### Python port
+- The Python implementation lives under `frap_toolbox_py/` and currently
+  supports diffusion analysis plus Reaction 1 and Reaction 2 backend fitting.
+- The preferred image I/O layer is BioIO with the `bioio-tifffile` plugin.
+  Optional extras add ND2, Bio-Formats, app, Qt, and legacy AICSImageIO readers.
+- Large local microscopy fixtures belong in ignored `test-data/`; exploratory porting scripts belong in ignored `scratch/`.
+- Install the core test stack with Python 3.10+:
+   ```bash
+   python -m pip install -e ".[test]"
+   python -m pytest -q
+   ```
+- Install the modern app stack with Python 3.10+. For ND2 files, prefer:
+   ```bash
+   python -m pip install -e ".[app-nd2,test]"
+   ```
+- Launch the local browser app:
+   ```bash
+   frap-toolbox-app
+   ```
+- Run the diffusion workflow from the command line:
+   ```bash
+   frap-toolbox /path/to/dataset1.lsm --roi 256 23 9 --post-bleach-frame 21
+   ```
+- Saved hand-drawn ROI masks can be reused from the command line with
+  `--bleach-mask` and `--cell-mask`. The mask container is documented in
+  `docs/roi-mask-format.md`.
+- Use `--fit-mode simplified_kang` for the Kang et al. per-curve half-time
+  diffusion estimator, or `--fit-mode simplified_kang_global` for a pooled
+  global fit of the simplified profile/recovery equations.
+- Reaction 1 and Reaction 2 fitters are available through the app and through
+  `--model reaction1` and `--model reaction2`; raw guide parity can now consume
+  stored user-defined bleach/cell ROI masks for the ND2 workflows.
+- Clean checkout CI runs without `test-data/`; local MATLAB parity testing is
+  documented in `docs/developer-setup.md` and
+  `docs/user-guide-parity-testing.md`.
+
 ## Recent Applications
-Below are recent publications that applied FRAP-Toolbox algorithms. Each image is available in the `Images/` directory.
+Below are recent publications that applied FRAP-Toolbox algorithms.
 
 - Kraft LJ, Nguyen TA, Vogel SS, Kenworthy AK (2014) Size, stoichiometry, and organization of soluble LC3-associated complexes. *Autophagy* 10. [Learn more](https://www.landesbioscience.com/journals/autophagy/article/28175/)
 - Kraft L, Kenworthy A (2012) Imaging protein complex formation in the autophagy pathway. *Journal of Biomedical Optics* 17: 11008. [Learn more](http://biomedicaloptics.spiedigitallibrary.org/article.aspx?articleid=1182818)
@@ -372,9 +481,9 @@ Below are recent publications that applied FRAP-Toolbox algorithms. Each image i
 ## Archive
 Older FRAP-Toolbox versions remain available for download:
 
-- Windows x32: `DownloadFiles/FRAP-Toolbox_x32.zip`
-- Windows x64: `DownloadFiles/FRAP-Toolbox_x64.zip`
-- macOS x64: `DownloadFiles/FRAP-Toolbox_MAC.app.zip`
+Legacy binary archives are not tracked in this Git repository. Use the GitHub
+repository history, future GitHub releases, or externally archived records for
+reproducible legacy artifacts.
 
 ## FAQ
 1. **Is FRAP-Toolbox free to use?** Yes. It is open source under the GNU GPL. Please cite the software if it supports your work.
@@ -386,7 +495,7 @@ Before submitting a bug report, make sure you are running the latest release. Fo
 
 - Exact error messages (copy and paste the text).
 - Version information for FRAP-Toolbox and your operating system.
-- Non-working datasets (send files, or request FTP upload instructions if files are large).
+- Non-working datasets, or a small representative subset when files are large.
 - Additional details and screenshots of the settings that triggered the issue.
 
 Email the compiled information to [Lewis Kraft](mailto:kraftlj@gmail.com).
@@ -405,6 +514,3 @@ Phone: 615.322.6615
 
 - Support: [kraftlj@gmail.com](mailto:kraftlj@gmail.com)
 - Correspondence: [anne.kenworthy@vanderbilt.edu](mailto:anne.kenworthy@vanderbilt.edu)
-
-
-
