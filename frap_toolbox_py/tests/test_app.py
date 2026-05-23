@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import frap_toolbox_py.data.loading as data_loading
 from frap_toolbox_py.app import (
     SOFTWARE_AUTHORS,
     SOFTWARE_CITATION,
@@ -102,6 +103,14 @@ def test_load_mask_array_accepts_csv_masks():
     )
 
 
+def test_load_mask_array_rejects_empty_masks():
+    buffer = NamedBytesIO("roi.csv")
+    buffer.write(b"0,0\n0,0\n")
+
+    with pytest.raises(ValueError, match="empty"):
+        _load_mask_array(buffer, label="bleach ROI")
+
+
 def test_load_mask_array_rejects_multi_array_npz_without_mask_key():
     buffer = NamedBytesIO("roi.npz")
     np.savez(buffer, bleach=np.ones((2, 2)), cell=np.ones((2, 2)))
@@ -188,3 +197,59 @@ def test_resolve_polygon_roi_requires_explicit_close():
             image_shape=(6, 6),
             polygon_closed=False,
         )
+
+
+def test_preview_helpers_read_shape_and_single_frame(monkeypatch, tmp_path: Path):
+    stack = np.arange(3 * 4 * 5).reshape((3, 4, 5))
+    calls = []
+
+    class Dims:
+        T = 3
+
+    class FakeImage:
+        dims = Dims()
+
+        def get_image_data(self, dimension_order, **kwargs):
+            calls.append((dimension_order, kwargs))
+            if dimension_order == "YX":
+                return stack[kwargs["T"]]
+            if dimension_order == "TYX":
+                return stack
+            raise AssertionError(dimension_order)
+
+    monkeypatch.setattr(data_loading, "_open_image", lambda path: (FakeImage(), "fake"))
+
+    path = tmp_path / "fake.lsm"
+    assert data_loading.preview_stack_shape(path) == (3, 4, 5)
+    np.testing.assert_array_equal(data_loading.preview_frame(path, 99), stack[2])
+    assert ("YX", {"T": 2, "C": 0, "Z": 0}) in calls
+
+
+def test_preview_shape_uses_metadata_before_reading_stack(monkeypatch, tmp_path: Path):
+    class Dims:
+        T = 7
+        Y = 11
+        X = 13
+
+    class FakeImage:
+        dims = Dims()
+
+        def get_image_data(self, dimension_order, **kwargs):
+            raise AssertionError("preview_stack_shape should use metadata dimensions")
+
+    monkeypatch.setattr(data_loading, "_open_image", lambda path: (FakeImage(), "fake"))
+
+    assert data_loading.preview_stack_shape(tmp_path / "fake.lsm") == (7, 11, 13)
+
+
+def test_streamlit_app_smoke():
+    streamlit_testing = pytest.importorskip(
+        "streamlit.testing.v1",
+        reason="Streamlit testing harness is not installed.",
+    )
+    app_path = Path(__file__).resolve().parents[1] / "app.py"
+
+    app_test = streamlit_testing.AppTest.from_file(str(app_path), default_timeout=10)
+    app_test.run()
+
+    assert not app_test.exception

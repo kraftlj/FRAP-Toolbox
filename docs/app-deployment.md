@@ -2,9 +2,8 @@
 
 This note tracks the practical user path for the modern Python app.
 
-For the new cloud-first pilot architecture, see `docs/cloud-first-web-app.md`.
-The Streamlit app below remains the local workstation/developer surface while the
-Cloud Run + GCS + Batch workflow matures toward end-user parity.
+The Streamlit app is the supported local workstation and developer surface on
+mainline. The earlier cloud web pilot is kept on a separate branch.
 
 ## Recommended Local Setup
 
@@ -33,7 +32,7 @@ Bio-Formats or the legacy AICSImageIO fallback.
 5. Set post-bleach frame, pre-bleach frame count, background, and fit mode.
 6. Run analysis and inspect the parameter table, fit curve, residuals, and diffusion
    post-bleach profile when applicable.
-7. Write a local export bundle when results should be archived or shared.
+7. Write an analysis export bundle when results should be archived or shared.
 
 The Streamlit app intentionally follows the CLI defaults:
 
@@ -43,6 +42,8 @@ The Streamlit app intentionally follows the CLI defaults:
 - `normalize-by-cell`: off
 - `fit-mode`: `global` for diffusion, `individual` for Reaction 1, `average_curve` for
   Reaction 2
+- `optimizer-mode`: `modern`; `legacy_matlab` is available under advanced
+  parity options for historical comparisons
 
 ## ROI Workflow
 
@@ -80,13 +81,14 @@ container, so drawn ROIs can be reused through the CLI or future app runs.
 
 ## Local Export Bundle
 
-The app export control and CLI `--output-dir` flag write the same beta bundle:
+The app export control and CLI `--output-dir` flag write the same analysis
+export bundle:
 
 - `result-parameters.csv`
 - `frap-series.csv`
 - `post-bleach-profile.csv` for diffusion runs
 - `roi-masks.npz` when ROIs can be materialized as masks
-- `run-metadata.json`
+- `run-metadata.json` with `analysis_bundle_version: 1`
 
 The CLI keeps its existing stdout behavior unless `--output-dir` is supplied.
 

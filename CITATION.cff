@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use FRAP-Toolbox, please cite the software and repository."
+title: "FRAP-Toolbox: Software for the analysis of Fluorescence Recovery After Photobleaching"
+type: software
+version: 0.1.0
+date-released: 2014-06-14
+license: GPL-3.0-or-later
+repository-code: "https://github.com/kraftlj/FRAP-Toolbox"
+url: "https://github.com/kraftlj/FRAP-Toolbox"
+authors:
+  - family-names: Kraft
+    given-names: Lewis J.
+  - family-names: Dowler
+    given-names: Jacob
+  - family-names: Day
+    given-names: Charles A.
+  - family-names: Kang
+    given-names: Minchul
+  - family-names: Kenworthy
+    given-names: Anne K.
+abstract: "Modern Python tools and archived MATLAB source for quantitative FRAP analysis."

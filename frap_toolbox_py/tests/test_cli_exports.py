@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from frap_toolbox_py import cli
 from frap_toolbox_py.roi import load_roi_mask
@@ -50,8 +51,14 @@ def test_cli_output_dir_writes_diffusion_export_bundle(monkeypatch, tmp_path: Pa
         averaged_frap_residuals=np.asarray([0.0, 0.01]),
     )
 
+    captured = {}
+
+    def fit_diffusion_model(*args, **kwargs):
+        captured["optimizer_mode"] = args[2].optimizer_mode
+        return result
+
     monkeypatch.setattr(cli, "load_diffusion_datasets", lambda *args, **kwargs: [dataset])
-    monkeypatch.setattr(cli, "fit_diffusion_model", lambda *args, **kwargs: result)
+    monkeypatch.setattr(cli, "fit_diffusion_model", fit_diffusion_model)
 
     output_dir = tmp_path / "exports"
     cli.main(
@@ -65,6 +72,8 @@ def test_cli_output_dir_writes_diffusion_export_bundle(monkeypatch, tmp_path: Pa
             "1",
             "--pre-bleach-count",
             "1",
+            "--optimizer-mode",
+            "legacy_matlab",
             "--output-dir",
             str(output_dir),
         ]
@@ -76,7 +85,12 @@ def test_cli_output_dir_writes_diffusion_export_bundle(monkeypatch, tmp_path: Pa
     assert load_roi_mask(output_dir / "roi-masks.npz", "bleach").shape == (6, 6)
     metadata = json.loads((output_dir / "run-metadata.json").read_text(encoding="utf-8"))
     assert metadata["created_by"] == "frap-toolbox-cli"
+    assert metadata["analysis_bundle_version"] == 1
     assert metadata["model"] == "diffusion"
+    assert metadata["settings"]["optimizer_mode"] == "legacy_matlab"
+    assert metadata["roi_definitions"]["bleach"]["center_x"] == 3.0
+    assert metadata["roi_definitions"]["bleach"]["radius"] == 2.0
+    assert captured["optimizer_mode"] == "legacy_matlab"
 
 
 def test_cli_output_dir_writes_reaction_export_bundle(monkeypatch, tmp_path: Path):
@@ -93,8 +107,14 @@ def test_cli_output_dir_writes_reaction_export_bundle(monkeypatch, tmp_path: Pat
         averaged_frap_residuals=np.asarray([0.01, -0.01]),
     )
 
+    captured = {}
+
+    def fit_reaction_model(*args, **kwargs):
+        captured["optimizer_mode"] = args[2].optimizer_mode
+        return result
+
     monkeypatch.setattr(cli, "load_reaction_datasets", lambda *args, **kwargs: [dataset])
-    monkeypatch.setattr(cli, "fit_reaction_model", lambda *args, **kwargs: result)
+    monkeypatch.setattr(cli, "fit_reaction_model", fit_reaction_model)
 
     output_dir = tmp_path / "reaction-exports"
     cli.main(
@@ -112,6 +132,8 @@ def test_cli_output_dir_writes_reaction_export_bundle(monkeypatch, tmp_path: Pat
             "1",
             "--fit-mode",
             "individual",
+            "--optimizer-mode",
+            "legacy_matlab",
             "--output-dir",
             str(output_dir),
         ]
@@ -122,4 +144,26 @@ def test_cli_output_dir_writes_reaction_export_bundle(monkeypatch, tmp_path: Pat
     assert load_roi_mask(output_dir / "roi-masks.npz", "bleach").shape == (6, 6)
     metadata = json.loads((output_dir / "run-metadata.json").read_text(encoding="utf-8"))
     assert metadata["model"] == "reaction1"
+    assert metadata["analysis_bundle_version"] == 1
     assert metadata["fit_mode"] == "individual"
+    assert metadata["settings"]["optimizer_mode"] == "legacy_matlab"
+    assert captured["optimizer_mode"] == "legacy_matlab"
+
+
+def test_cli_reaction_rejects_diffusion_only_fit_modes():
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(
+            [
+                "fake.nd2",
+                "--model",
+                "reaction1",
+                "--roi",
+                "3",
+                "3",
+                "2",
+                "--fit-mode",
+                "simplified_kang",
+            ]
+        )
+
+    assert "Reaction models support only" in str(exc_info.value)

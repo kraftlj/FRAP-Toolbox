@@ -19,8 +19,12 @@ try:
 except ImportError:  # pragma: no cover - app extra is optional for library use
     streamlit_image_coordinates = None
 
-from frap_toolbox_py.data.loading import load_diffusion_datasets, load_reaction_datasets
-from frap_toolbox_py.data.loading import _open_image
+from frap_toolbox_py.data.loading import (
+    load_diffusion_datasets,
+    load_reaction_datasets,
+    preview_frame as load_preview_frame,
+    preview_stack_shape as load_preview_stack_shape,
+)
 from frap_toolbox_py.exports import result_parameters_table, write_analysis_bundle
 from frap_toolbox_py.models.diffusion import default_diffusion_config, fit_diffusion_model
 from frap_toolbox_py.models.reaction import (
@@ -28,35 +32,25 @@ from frap_toolbox_py.models.reaction import (
     default_reaction2_config,
     fit_reaction_model,
 )
+from frap_toolbox_py.options import (
+    DIFFUSION_FIT_MODES,
+    MODEL_INDEX,
+    MODEL_LABELS,
+    OPTIMIZER_MODES,
+    REACTION_FIT_MODES,
+    default_fit_mode as shared_default_fit_mode,
+)
 from frap_toolbox_py.roi import CircularROI, PolygonROI, adjacent_circle, load_roi_mask
 from frap_toolbox_py.types import BasicInputs
 
 
 SUPPORTED_EXTENSIONS = [".lsm", ".tif", ".tiff", ".ome.tif", ".ome.tiff", ".nd2"]
 MASK_EXTENSIONS = [".npy", ".npz", ".csv", ".txt", ".tsv"]
-MODEL_LABELS = {
-    "diffusion": "Diffusion",
-    "reaction1": "Reaction 1",
-    "reaction2": "Reaction 2",
-}
-MODEL_INDEX = {
-    "diffusion": 1,
-    "reaction1": 2,
-    "reaction2": 3,
-}
 DEFAULT_MODEL_DIRS = {
     "diffusion": ("sample-data", "Diffusion"),
     "reaction1": ("test-data", "Reaction 1"),
     "reaction2": ("test-data", "Reaction 2"),
 }
-DIFFUSION_FIT_MODES = [
-    "global",
-    "individual",
-    "average_curve",
-    "simplified_kang",
-    "simplified_kang_global",
-]
-REACTION_FIT_MODES = ["individual", "average_curve"]
 ROI_SOURCE_CIRCULAR = "Circular numeric ROI"
 ROI_SOURCE_DRAW_CIRCLE = "Draw circle on preview"
 ROI_SOURCE_DRAW_POLYGON = "Draw polygon on preview"
@@ -113,20 +107,16 @@ def _contrast_preview_frame(frame: np.ndarray) -> np.ndarray:
 
 
 def _preview_stack_shape(path: Path) -> tuple[int, int, int]:
-    image, _ = _open_image(path)
-    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0))
-    if stack.ndim != 3:
-        raise ValueError("Expected stack with dimensions (T, Y, X).")
-    return tuple(int(value) for value in stack.shape)  # type: ignore[return-value]
+    return load_preview_stack_shape(path)
 
 
 def _preview_frame(path: Path, frame_index: int) -> np.ndarray:
-    image, _ = _open_image(path)
-    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0))
-    if stack.ndim != 3:
-        raise ValueError("Expected stack with dimensions (T, Y, X).")
-    clipped = min(max(int(frame_index), 0), stack.shape[0] - 1)
-    return stack[clipped]
+    return load_preview_frame(path, frame_index)
+
+
+if st is not None:
+    _preview_stack_shape = st.cache_data(show_spinner=False)(_preview_stack_shape)
+    _preview_frame = st.cache_data(show_spinner=False)(_preview_frame)
 
 
 def _clip_zero_based_point(x: float, y: float, image_shape: tuple[int, int]) -> tuple[float, float]:
@@ -250,11 +240,7 @@ def _overlay_roi_preview(
 
 
 def _default_fit_mode(model_key: str) -> str:
-    if model_key == "reaction1":
-        return "individual"
-    if model_key == "reaction2":
-        return "average_curve"
-    return "global"
+    return shared_default_fit_mode(model_key)
 
 
 def _build_inputs(
@@ -298,10 +284,15 @@ def _coerce_mask(array: np.ndarray, label: str = "mask") -> np.ndarray:
     if mask.ndim != 2:
         raise ValueError(f"{label} must be a 2-D array.")
     if mask.dtype == bool:
+        if not mask.any():
+            raise ValueError(f"{label} is empty.")
         return mask
     if not np.all(np.isfinite(mask)):
         raise ValueError(f"{label} contains non-finite values.")
-    return mask > 0
+    mask = mask > 0
+    if not mask.any():
+        raise ValueError(f"{label} is empty.")
+    return mask
 
 
 def _load_mask_array(source: MaskSource, mask_name: str = "mask", label: str = "mask") -> np.ndarray:
@@ -362,6 +353,7 @@ def _build_diffusion_result(
     adjacent_offset: float,
     max_profile_radius: float | None,
     fit_mode: str,
+    optimizer_mode: str,
 ):
     if use_adjacent_roi and roi_mode != 1:
         raise ValueError("Adjacent ROI correction currently requires a circular numeric bleach ROI.")
@@ -405,6 +397,7 @@ def _build_diffusion_result(
         if profile_indices.size > 2:
             config.profile_range = (int(profile_indices[0]), int(profile_indices[-1]) + 1)
     config.fit_mode = fit_mode
+    config.optimizer_mode = optimizer_mode
 
     return fit_diffusion_model(datasets, inputs, config)
 
@@ -421,6 +414,7 @@ def _build_reaction_result(
     normalize_by_cell: bool,
     cell_roi,
     fit_mode: str,
+    optimizer_mode: str,
 ):
     inputs = _build_inputs(
         files,
@@ -459,6 +453,7 @@ def _build_reaction_result(
         config.fit_averaged_data = False
     elif fit_mode == "average_curve":
         config.fit_averaged_data = True
+    config.optimizer_mode = optimizer_mode
 
     return fit_reaction_model(datasets, inputs, config, model_order=model_order)
 
@@ -609,6 +604,68 @@ def _resolve_roi(
     if circular_roi is None:
         raise ValueError(f"Define a circular {label} ROI before running analysis.")
     return _circular_mask_factory(circular_roi), 1, (circular_roi.center_x, circular_roi.center_y, circular_roi.radius)
+
+
+def _shape_metadata(image_shape: tuple[int, int] | None) -> list[int] | None:
+    if image_shape is None:
+        return None
+    return [int(value) for value in image_shape]
+
+
+def _source_name(source) -> str | None:
+    if source is None:
+        return None
+    return str(getattr(source, "name", source))
+
+
+def _circular_roi_definition(roi: CircularROI, source: str, extra: dict[str, object] | None = None) -> dict[str, object]:
+    definition: dict[str, object] = {
+        "type": "circle",
+        "source": source,
+        "center_x": float(roi.center_x),
+        "center_y": float(roi.center_y),
+        "radius": float(roi.radius),
+        "coordinate_system": "one_based_pixel_centers",
+    }
+    if extra:
+        definition.update(extra)
+    return definition
+
+
+def _roi_definition_metadata(
+    roi_source: str,
+    circular_roi: CircularROI | None,
+    uploaded_mask,
+    mask_name: str,
+    *,
+    polygon_points: list[tuple[float, float]],
+    image_shape: tuple[int, int] | None,
+    polygon_closed: bool,
+    preview_frame_index: int | None,
+) -> dict[str, object]:
+    common = {
+        "source": roi_source,
+        "image_shape": _shape_metadata(image_shape),
+        "preview_frame_index": preview_frame_index,
+    }
+    if roi_source == ROI_SOURCE_SAVED_MASK:
+        return {
+            **common,
+            "type": "saved_mask",
+            "mask_name": mask_name,
+            "filename": _source_name(uploaded_mask),
+        }
+    if roi_source == ROI_SOURCE_DRAW_POLYGON:
+        return {
+            **common,
+            "type": "polygon",
+            "vertices": [[float(x), float(y)] for x, y in polygon_points],
+            "coordinate_system": "zero_based_preview_pixels",
+            "closed": bool(polygon_closed),
+        }
+    if circular_roi is None:
+        return {**common, "type": "circle"}
+    return _circular_roi_definition(circular_roi, roi_source, common)
 
 
 def _role_key(role: str) -> str:
@@ -796,6 +853,17 @@ def main() -> None:
                 index=REACTION_FIT_MODES.index(_default_fit_mode(model_key)),
             )
 
+        with st.expander("Advanced parity options"):
+            optimizer_mode = st.selectbox(
+                "Optimizer mode",
+                OPTIMIZER_MODES,
+                index=0,
+                help=(
+                    "`modern` is the default analysis path. `legacy_matlab` "
+                    "emulates historical MATLAB solver behavior for parity work."
+                ),
+            )
+
         run_requested = st.button("Run analysis", type="primary", icon=":material/play_arrow:")
 
     roi_sources = {"bleach": bleach_source}
@@ -837,6 +905,40 @@ def main() -> None:
                     polygon_closed=_polygon_closed_for_role("cell"),
                 )
 
+            roi_definitions = {
+                "bleach": _roi_definition_metadata(
+                    bleach_source,
+                    bleach_circle,
+                    bleach_upload,
+                    "bleach",
+                    polygon_points=_polygon_points_for_role("bleach"),
+                    image_shape=preview_image_shape,
+                    polygon_closed=_polygon_closed_for_role("bleach"),
+                    preview_frame_index=preview_frame_index,
+                )
+            }
+            if normalize_by_cell and cell_source is not None:
+                roi_definitions["cell"] = _roi_definition_metadata(
+                    cell_source,
+                    cell_circle,
+                    cell_upload,
+                    "cell",
+                    polygon_points=_polygon_points_for_role("cell"),
+                    image_shape=preview_image_shape,
+                    polygon_closed=_polygon_closed_for_role("cell"),
+                    preview_frame_index=preview_frame_index,
+                )
+            if model_key == "diffusion" and use_adjacent_roi and roi_mode == 1:
+                adjacent_roi = adjacent_circle(
+                    CircularROI(*roi_definition),
+                    offset_factor=float(adjacent_offset),
+                )
+                roi_definitions["adjacent"] = _circular_roi_definition(
+                    adjacent_roi,
+                    "Adjacent ROI correction",
+                    {"offset_factor": float(adjacent_offset)},
+                )
+
             profile_limit = max_profile_radius if max_profile_radius > 0 else None
             spinner_label = f"Running {MODEL_LABELS[model_key].lower()} fit..."
             with st.spinner(spinner_label):
@@ -858,6 +960,7 @@ def main() -> None:
                             float(adjacent_offset),
                             profile_limit,
                             fit_mode,
+                            optimizer_mode,
                         )
                     else:
                         result = _build_reaction_result(
@@ -872,6 +975,7 @@ def main() -> None:
                             normalize_by_cell,
                             cell_roi,
                             fit_mode,
+                            optimizer_mode,
                         )
         except Exception as exc:
             st.error(str(exc))
@@ -903,8 +1007,10 @@ def main() -> None:
                 "use_adjacent_roi": bool(use_adjacent_roi),
                 "adjacent_offset": float(adjacent_offset),
                 "max_profile_radius": None if max_profile_radius <= 0 else float(max_profile_radius),
+                "optimizer_mode": optimizer_mode,
             },
             "roi_sources": roi_sources,
+            "roi_definitions": roi_definitions,
             "fit_mode": fit_mode,
             "roi_masks": roi_masks,
             "roi_extra_metadata": {
@@ -957,6 +1063,7 @@ def main() -> None:
                         files=context["files"],
                         settings=context["settings"],
                         roi_sources=context["roi_sources"],
+                        roi_definitions=context["roi_definitions"],
                         fit_mode=context["fit_mode"],
                         roi_masks=context["roi_masks"],
                         roi_extra_metadata=context["roi_extra_metadata"],

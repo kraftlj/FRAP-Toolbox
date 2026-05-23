@@ -171,8 +171,8 @@ ones(numberofvariables,1)`.
 
 ## Next Steps
 
-- Decide whether to expose `modern` versus `legacy_matlab` optimizer modes in
-  the CLI/GUI alongside the existing global/individual/average-curve fit modes.
+- Keep `modern` as the default optimizer mode and reserve `legacy_matlab` for
+  explicit CLI/app parity runs against historical MATLAB outputs.
 - Document the tolerance sensitivity in user-facing docs so analysts understand
   why diffusion estimates can differ between MATLAB and Python runs.
 - Continue improving strict raw-loader parity, especially circular ROI

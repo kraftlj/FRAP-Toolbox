@@ -43,7 +43,9 @@ It should contain:
 
 2. Download the Zenodo archive
    [FRAP-Toolbox Legacy User Guide Test Data](https://doi.org/10.5281/zenodo.20344310)
-   and unpack it at repo root as `test-data/`. The expected layout includes:
+   and unpack it at repo root as `test-data/`. Python users can run
+   `python scripts/restore_test_data.py` to download, verify, and unpack it.
+   The expected layout includes:
 
    ```text
    test-data/Userguide.pdf
@@ -67,12 +69,13 @@ It should contain:
    matlab_parity_probe;
    ```
 
-   The script writes only under `scratch/matlab-parity-output/`.
+   The script adds `legacy/matlab/` to the MATLAB path and writes only under
+   `scratch/matlab-parity-output/`.
 
 ## Probe Details
 
 The probe recreates the exact diffusion ROI code path from
-`ROIinitialization_Diffusion.m`:
+`legacy/matlab/ROIinitialization_Diffusion.m`:
 
 ```matlab
 x0 = 256;
@@ -85,8 +88,8 @@ bleachroimask = poly2mask(xi, yi, 512, 512);
 adjacentroimask = poly2mask(xi + R0*2.5, yi, 512, 512);
 ```
 
-It also reconstructs the D/MF weighted diffusion fit from `DiffusionModel_2.m`
-using MATLAB-exported vectors:
+It also reconstructs the D/MF weighted diffusion fit from
+`legacy/matlab/DiffusionModel_2.m` using MATLAB-exported vectors:
 
 ```matlab
 wf = f ./ (t + sum(f));
@@ -105,8 +108,8 @@ For each target file, the probe saves:
 
 ## Optional Reaction Evidence
 
-If there is enough time, run the legacy GUI workflow from `Main_GUI.m` for the
-Reaction 2 guide data:
+If there is enough time, run the legacy GUI workflow from
+`legacy/matlab/Main_GUI.m` for the Reaction 2 guide data:
 
 - Model: Reaction 2
 - Files: `test-data/Reaction 2/Venus-Atg5_*.nd2`

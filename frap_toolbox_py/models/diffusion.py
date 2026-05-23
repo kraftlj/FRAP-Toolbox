@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import Iterable, List, Tuple
+from typing import List, Tuple
 
 import numpy as np
 from scipy.optimize import OptimizeWarning, curve_fit, least_squares
@@ -162,7 +162,9 @@ def _fit_curve(
     legacy_x_scale: List[float] | None = None,
 ) -> np.ndarray:
     if legacy_matlab:
-        residual = lambda params: model(xdata, *params) - ydata
+        def residual(params):
+            return model(xdata, *params) - ydata
+
         if legacy_x_scale is not None:
             return legacy_matlab_trf(
                 residual,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,21 @@ class CircularROI:
     center_y: float
     radius: float
 
+    def __post_init__(self) -> None:
+        for name, value in {
+            "center_x": self.center_x,
+            "center_y": self.center_y,
+            "radius": self.radius,
+        }.items():
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Circular ROI {name} must be finite.") from exc
+            if not math.isfinite(numeric):
+                raise ValueError(f"Circular ROI {name} must be finite.")
+        if float(self.radius) <= 0:
+            raise ValueError("Circular ROI radius must be greater than zero.")
+
     def to_mask(self, shape: Tuple[int, int]) -> np.ndarray:
         # MATLAB specifies ROI centres in 1-based image coordinates where pixel
         # centres fall on integer locations. Convert to NumPy's 0-based index
@@ -33,6 +49,8 @@ class CircularROI:
         rr, cc = disk((row, col), self.radius, shape=shape)
         mask = np.zeros(shape, dtype=bool)
         mask[rr, cc] = True
+        if not mask.any():
+            raise ValueError("Circular ROI does not overlap the image.")
         return mask
 
 
@@ -44,9 +62,15 @@ class PolygonROI:
 
     def to_mask(self, shape: Tuple[int, int]) -> np.ndarray:
         vertices = np.asarray(self.vertices, dtype=float)
+        if vertices.ndim != 2 or vertices.shape[1] != 2 or vertices.shape[0] < 3:
+            raise ValueError("Polygon ROI must contain at least three (x, y) vertices.")
+        if not np.all(np.isfinite(vertices)):
+            raise ValueError("Polygon ROI vertices must be finite.")
         rr, cc = polygon(vertices[:, 1], vertices[:, 0], shape=shape)
         mask = np.zeros(shape, dtype=bool)
         mask[rr, cc] = True
+        if not mask.any():
+            raise ValueError("Polygon ROI does not overlap the image.")
         return mask
 
 
@@ -126,6 +150,8 @@ def _validate_mask(name: str, mask: np.ndarray, image_shape: Tuple[int, int]) ->
         raise ValueError(
             f"ROI mask {name!r} has shape {tuple(mask.shape)}, expected {image_shape}."
         )
+    if not mask.any():
+        raise ValueError(f"ROI mask {name!r} is empty.")
     return mask.copy()
 
 

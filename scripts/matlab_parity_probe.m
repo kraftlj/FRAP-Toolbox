@@ -8,7 +8,8 @@ function matlab_parity_probe()
 % The probe writes only to scratch/matlab-parity-output/.
 
 repoRoot = resolveRepoRoot();
-addpath(repoRoot);
+matlabRoot = resolveMatlabRoot(repoRoot);
+addpath(matlabRoot);
 
 outputDir = fullfile(repoRoot, 'scratch', 'matlab-parity-output');
 ensureDir(outputDir);
@@ -22,12 +23,13 @@ cleanup = onCleanup(@() diary('off')); %#ok<NASGU>
 
 fprintf('FRAP-Toolbox MATLAB parity probe\n');
 fprintf('Repository root: %s\n', repoRoot);
+fprintf('MATLAB source directory: %s\n', matlabRoot);
 fprintf('Output directory: %s\n\n', outputDir);
 
 sectionStatus = {};
 
 try
-    writeEnvironmentFacts(outputDir, repoRoot);
+    writeEnvironmentFacts(outputDir, repoRoot, matlabRoot);
     sectionStatus{end + 1} = 'environment: ok'; %#ok<AGROW>
 catch err
     sectionStatus{end + 1} = ['environment: failed - ', err.message]; %#ok<AGROW>
@@ -74,8 +76,8 @@ candidates = {fileparts(scriptDir), scriptDir, pwd};
 repoRoot = '';
 for idx = 1:numel(candidates)
     candidate = candidates{idx};
-    if exist(fullfile(candidate, 'DiffusionModel_2.m'), 'file') == 2 ...
-            && exist(fullfile(candidate, 'ROIinitialization_Diffusion.m'), 'file') == 2
+    if exist(fullfile(candidate, 'pyproject.toml'), 'file') == 2 ...
+            && exist(fullfile(candidate, 'scripts', 'matlab_parity_probe.m'), 'file') == 2
         repoRoot = candidate;
         break;
     end
@@ -84,6 +86,17 @@ end
 if isempty(repoRoot)
     error('Could not locate the FRAP-Toolbox repository root.');
 end
+end
+
+function matlabRoot = resolveMatlabRoot(repoRoot)
+archivedRoot = fullfile(repoRoot, 'legacy', 'matlab');
+if exist(fullfile(archivedRoot, 'DiffusionModel_2.m'), 'file') == 2 ...
+        && exist(fullfile(archivedRoot, 'ROIinitialization_Diffusion.m'), 'file') == 2
+    matlabRoot = archivedRoot;
+    return;
+end
+
+error('Could not locate the archived FRAP-Toolbox MATLAB source.');
 end
 
 function ensureDir(pathToCreate)
@@ -100,7 +113,7 @@ end
 fprintf('\n');
 end
 
-function writeEnvironmentFacts(outputDir, repoRoot)
+function writeEnvironmentFacts(outputDir, repoRoot, matlabRoot)
 symbols = {'lsqcurvefit', 'lsqnonlin', 'poly2mask', 'roipoly', 'bfopen'};
 versionText = version;
 versionDetails = ver; %#ok<NASGU>
@@ -116,7 +129,8 @@ end
 
 fprintf(fid, 'MATLAB version: %s\n', versionText);
 fprintf(fid, 'Computer: %s\n', computer);
-fprintf(fid, 'Repository root: %s\n\n', repoRoot);
+fprintf(fid, 'Repository root: %s\n', repoRoot);
+fprintf(fid, 'MATLAB source directory: %s\n\n', matlabRoot);
 
 fprintf(fid, 'Installed toolbox versions:\n');
 for idx = 1:numel(versionDetails)
@@ -212,7 +226,7 @@ fid = fopen(summaryPath, 'w');
 if fid < 0
     error('Could not write %s', summaryPath);
 end
-fprintf(fid, 'Diffusion ROI masks from ROIinitialization_Diffusion.m\n');
+fprintf(fid, 'Diffusion ROI masks from legacy/matlab/ROIinitialization_Diffusion.m\n');
 fprintf(fid, 'x0=%g, y0=%g, R0=%g, image shape=%dx%d\n', x0, y0, R0, imageShape(1), imageShape(2));
 fprintf(fid, 'bleach nnz=%d\n', nnz(bleachroimask));
 fprintf(fid, 'adjacent nnz=%d\n', nnz(adjacentroimask));

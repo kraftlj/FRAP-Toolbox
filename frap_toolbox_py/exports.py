@@ -11,6 +11,8 @@ import pandas as pd
 
 from .roi import save_roi_masks
 
+ANALYSIS_BUNDLE_VERSION = 1
+
 
 def package_version() -> str:
     try:
@@ -191,11 +193,12 @@ def write_analysis_bundle(
     settings: Mapping[str, Any],
     roi_sources: Mapping[str, str],
     fit_mode: str,
+    roi_definitions: Mapping[str, Any] | None = None,
     roi_masks: Mapping[str, np.ndarray] | None = None,
     roi_extra_metadata: Mapping[str, Any] | None = None,
     created_by: str = "frap-toolbox-app",
 ) -> dict[str, Path]:
-    """Write the local beta analysis export bundle and return created paths."""
+    """Write the analysis export bundle and return created paths."""
 
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -225,13 +228,14 @@ def write_analysis_bundle(
             roi_mask_path,
             roi_masks,
             image_shape=first_mask.shape,
-            roi_kind="local-beta",
+            roi_kind="analysis-export",
             source_file=Path(files[0]).name if files else None,
             extra_metadata={"created_by": created_by, **dict(roi_extra_metadata or {})},
         )
         paths["roi_masks"] = roi_mask_path
 
     metadata = {
+        "analysis_bundle_version": ANALYSIS_BUNDLE_VERSION,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "created_by": created_by,
         "package_version": package_version(),
@@ -242,6 +246,8 @@ def write_analysis_bundle(
         "roi_sources": dict(roi_sources),
         "exports": {name: path.name for name, path in paths.items()},
     }
+    if roi_definitions is not None:
+        metadata["roi_definitions"] = _json_safe(roi_definitions)
     if roi_mask_path is not None:
         metadata["roi_mask_file"] = roi_mask_path.name
 

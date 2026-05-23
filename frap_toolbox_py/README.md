@@ -37,7 +37,6 @@ Optional extras:
 - `pip install -e ".[nd2]"` for Nikon ND2 files through BioIO.
 - `pip install -e ".[bioformats]"` for Bio-Formats-backed readers.
 - `pip install -e ".[legacy-io]"` for the older AICSImageIO fallback.
-- `pip install -e ".[qt]"` for the experimental Qt GUI dependencies.
 - `pip install -e ".[app-nd2,test]"` for the most common local app setup with
   ND2 files.
 - `pip install -e ".[app-full,test]"` for Streamlit plus ND2, Bio-Formats, and
@@ -114,18 +113,22 @@ frap-toolbox test-data/Diffusion/Venus_Cytoplasm_*.lsm \
 Useful flags:
 - `--adjacent-offset` (default `2.5`): controls spacing of the adjacent ROI used when
   computing corrected mobile fractions.
-- `--fit-mode` (default `global`): choose `global` for a true shared `K`/`re`/`D`/`MF`
-  fit across pooled curves, `individual` for per-stack fits averaged afterward,
-  `average_curve` to fit only the averaged FRAP/profile curves, `simplified_kang`
-  for the Kang half-time estimator, or `simplified_kang_global` for a pooled global
-  fit of the simplified profile/recovery equations.
+- `--fit-mode`: defaults to `global` for diffusion, `individual` for Reaction 1,
+  and `average_curve` for Reaction 2. Choose `global` for a true shared
+  `K`/`re`/`D`/`MF` diffusion fit across pooled curves, `individual` for
+  per-stack fits averaged afterward, `average_curve` to fit only averaged
+  curves, `simplified_kang` for the Kang half-time estimator, or
+  `simplified_kang_global` for a pooled global fit of the simplified
+  profile/recovery equations.
+- `--optimizer-mode`: defaults to `modern`. Use `legacy_matlab` only when
+  reproducing historical MATLAB solver behavior for parity investigations.
 - `--normalize-by-cell`: supply if you draw or compute a whole-cell mask and want to
   normalize by it.
 - `--model`: choose `diffusion`, `reaction1`, or `reaction2`. Reaction workflows can
   use `--cell-roi X Y RADIUS` when whole-cell normalization is enabled.
 - `--bleach-mask` and `--cell-mask`: load saved `.npz` ROI masks instead of circular
   ROI parameters. See `docs/roi-mask-format.md` for the container contract.
-- `--output-dir`: write the local beta export bundle, including
+- `--output-dir`: write the analysis export bundle, including
   `result-parameters.csv`, `frap-series.csv`, optional `post-bleach-profile.csv`,
   `roi-masks.npz`, and `run-metadata.json`.
 
@@ -158,7 +161,7 @@ Before publishing or opening a packaging PR, run:
 
 ```bash
 python -m pip check
-python -m pip install build twine
+python -m pip install -e ".[dev]"
 python -m build --sdist --wheel
 python -m twine check dist/*
 ```

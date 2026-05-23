@@ -68,7 +68,7 @@ def test_export_tables_include_expected_semantic_columns():
     assert "Average" in frap["Dataset"].tolist()
 
 
-def test_write_analysis_bundle_writes_beta_export_contract(tmp_path: Path):
+def test_write_analysis_bundle_writes_analysis_export_contract(tmp_path: Path):
     result = _diffusion_result()
     mask = np.zeros((5, 5), dtype=bool)
     mask[1:3, 1:3] = True
@@ -81,6 +81,14 @@ def test_write_analysis_bundle_writes_beta_export_contract(tmp_path: Path):
         settings={"post_bleach_frame": 21, "pre_bleach_count": 10},
         roi_sources={"bleach": "Circular numeric ROI"},
         fit_mode="global",
+        roi_definitions={
+            "bleach": {
+                "type": "circle",
+                "center_x": 3.0,
+                "center_y": 3.0,
+                "radius": 2.0,
+            }
+        },
         roi_masks={"bleach": mask},
         roi_extra_metadata={
             "frame_index": 20,
@@ -103,8 +111,21 @@ def test_write_analysis_bundle_writes_beta_export_contract(tmp_path: Path):
     pd.read_csv(tmp_path / "post-bleach-profile.csv")
 
     metadata = json.loads((tmp_path / "run-metadata.json").read_text(encoding="utf-8"))
+    assert metadata["analysis_bundle_version"] == 1
     assert metadata["model"] == "diffusion"
     assert metadata["fit_mode"] == "global"
     assert metadata["created_by"] == "frap-toolbox-app"
+    assert {
+        "created_at",
+        "created_by",
+        "exports",
+        "files",
+        "fit_mode",
+        "model",
+        "package_version",
+        "roi_sources",
+        "settings",
+    } <= set(metadata)
+    assert metadata["roi_definitions"]["bleach"]["radius"] == 2.0
     assert metadata["exports"]["parameters"] == "result-parameters.csv"
     assert np.array_equal(load_roi_mask(tmp_path / "roi-masks.npz", "bleach"), mask)

@@ -12,6 +12,14 @@ from .models.reaction import (
     default_reaction2_config,
     fit_reaction_model,
 )
+from .options import (
+    DEFAULT_FIT_MODES,
+    DIFFUSION_FIT_MODES,
+    MODEL_INDEX,
+    MODEL_KEYS,
+    OPTIMIZER_MODES,
+    REACTION_FIT_MODES,
+)
 from .roi import CircularROI, adjacent_circle, load_roi_mask
 from .types import BasicInputs
 
@@ -30,10 +38,17 @@ def _load_mask_argument(path: Path, name: str):
         raise SystemExit(f"Could not load {name} ROI mask from {path}: {exc}") from exc
 
 
+def _build_circular_roi(values, label: str) -> CircularROI:
+    try:
+        return CircularROI(*values)
+    except ValueError as exc:
+        raise SystemExit(f"Invalid {label}: {exc}") from exc
+
+
 def parse_arguments(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="FRAP-Toolbox Python port")
     parser.add_argument("files", nargs="+", type=Path, help="Paths to FRAP image files")
-    parser.add_argument("--model", choices=["diffusion", "reaction1", "reaction2"], default="diffusion")
+    parser.add_argument("--model", choices=MODEL_KEYS, default="diffusion")
     parser.add_argument(
         "--roi",
         nargs=3,
@@ -71,25 +86,30 @@ def parse_arguments(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--fit-mode",
-        choices=[
-            "global",
-            "individual",
-            "average_curve",
-            "simplified_kang",
-            "simplified_kang_global",
-        ],
-        default="global",
+        choices=DIFFUSION_FIT_MODES,
+        default=None,
         help=(
-            "Diffusion fit strategy. 'global' concatenates per-curve residuals without averaging curves; "
+            "Fit strategy. Defaults to 'global' for diffusion, 'individual' for Reaction 1, and "
+            "'average_curve' for Reaction 2. For diffusion, 'global' concatenates per-curve residuals "
+            "without averaging curves; "
             "'simplified_kang' uses the Kang half-time estimator; 'simplified_kang_global' fits the "
             "simplified recovery equation to pooled curves. For reaction models, 'individual' and "
             "'average_curve' select per-curve or averaged-curve fitting."
         ),
     )
     parser.add_argument(
+        "--optimizer-mode",
+        choices=OPTIMIZER_MODES,
+        default="modern",
+        help=(
+            "Optimizer behavior. Use 'modern' for normal analysis and "
+            "'legacy_matlab' only for historical MATLAB parity checks."
+        ),
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
-        help="Write the local beta export bundle to this directory.",
+        help="Write the analysis export bundle to this directory.",
     )
     return parser.parse_args(argv)
 
@@ -108,6 +128,53 @@ def _mask_for_export(mask_or_factory, image_shape: tuple[int, int] | None):
     if hasattr(mask_or_factory, "shape"):
         return mask_or_factory
     return mask_or_factory(image_shape)
+
+
+def _circle_definition(values, source: str) -> dict[str, object]:
+    center_x, center_y, radius = (float(value) for value in values)
+    return {
+        "type": "circle",
+        "source": source,
+        "center_x": center_x,
+        "center_y": center_y,
+        "radius": radius,
+        "coordinate_system": "one_based_pixel_centers",
+    }
+
+
+def _mask_definition(path: Path, mask_name: str) -> dict[str, object]:
+    return {
+        "type": "saved_mask",
+        "source": "Saved mask upload",
+        "filename": str(path),
+        "mask_name": mask_name,
+    }
+
+
+def _cli_roi_definitions(args) -> dict[str, object]:
+    definitions: dict[str, object] = {}
+    if args.roi is not None:
+        definitions["bleach"] = _circle_definition(args.roi, "Circular numeric ROI")
+        if args.use_adjacent_roi:
+            adjacent_roi = adjacent_circle(
+                CircularROI(*args.roi),
+                offset_factor=args.adjacent_offset,
+            )
+            definitions["adjacent"] = {
+                **_circle_definition(
+                    (adjacent_roi.center_x, adjacent_roi.center_y, adjacent_roi.radius),
+                    "Adjacent ROI correction",
+                ),
+                "offset_factor": float(args.adjacent_offset),
+            }
+    elif args.bleach_mask is not None:
+        definitions["bleach"] = _mask_definition(args.bleach_mask, "bleach")
+
+    if args.cell_roi is not None:
+        definitions["cell"] = _circle_definition(args.cell_roi, "Circular numeric ROI")
+    elif args.cell_mask is not None:
+        definitions["cell"] = _mask_definition(args.cell_mask, "cell")
+    return definitions
 
 
 def _write_cli_exports(args, result, datasets, mask_factory, cell_factory, model: str) -> None:
@@ -143,9 +210,11 @@ def _write_cli_exports(args, result, datasets, mask_factory, cell_factory, model
             "normalize_by_cell": args.normalize_by_cell,
             "use_adjacent_roi": args.use_adjacent_roi,
             "adjacent_offset": args.adjacent_offset,
+            "optimizer_mode": args.optimizer_mode,
         },
         roi_sources=roi_sources,
         fit_mode=args.fit_mode,
+        roi_definitions=_cli_roi_definitions(args),
         roi_masks=roi_masks,
         roi_extra_metadata={
             "frame_index": None,
@@ -166,10 +235,19 @@ def main(argv: Optional[List[str]] = None) -> None:
         raise SystemExit("Use either --roi or --bleach-mask for the bleach ROI, not both.")
     if args.cell_roi is not None and args.cell_mask is not None:
         raise SystemExit("Use either --cell-roi or --cell-mask for the whole-cell ROI, not both.")
+    if args.normalize_by_cell and args.cell_roi is None and args.cell_mask is None:
+        raise SystemExit("--normalize-by-cell requires --cell-roi X Y RADIUS or --cell-mask PATH.")
     if args.model == "diffusion" and args.bleach_mask is not None:
         raise SystemExit("--bleach-mask currently supports reaction workflows; diffusion requires --roi geometry.")
+    if args.fit_mode is None:
+        args.fit_mode = DEFAULT_FIT_MODES[args.model]
+    if args.model in {"reaction1", "reaction2"} and args.fit_mode not in REACTION_FIT_MODES:
+        raise SystemExit(
+            "Reaction models support only --fit-mode individual or average_curve. "
+            f"Received {args.fit_mode!r}."
+        )
 
-    bleach_roi = CircularROI(*args.roi) if args.roi is not None else None
+    bleach_roi = _build_circular_roi(args.roi, "bleach ROI") if args.roi is not None else None
     if bleach_roi is not None:
         mask_factory = _build_mask_factory(bleach_roi)
         roi_mode = 1
@@ -183,7 +261,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     if args.cell_mask is not None:
         cell_factory = _load_mask_argument(args.cell_mask, "cell")
     elif args.cell_roi is not None:
-        cell_factory = _build_mask_factory(CircularROI(*args.cell_roi))
+        cell_factory = _build_mask_factory(_build_circular_roi(args.cell_roi, "cell ROI"))
 
     adjacent_factory = None
     if args.use_adjacent_roi:
@@ -194,7 +272,7 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     post_bleach_index = max(args.post_bleach_frame - 1, 0)
 
-    model_index = {"diffusion": 1, "reaction1": 2, "reaction2": 3}[args.model]
+    model_index = MODEL_INDEX[args.model]
     inputs = BasicInputs(
         file_paths=[path.resolve() for path in args.files],
         model_index=model_index,
@@ -233,6 +311,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             config.fit_averaged_data = False
         elif args.fit_mode == "average_curve":
             config.fit_averaged_data = True
+        config.optimizer_mode = args.optimizer_mode
 
         result = fit_reaction_model(datasets, inputs, config, model_order=model_order)
         _write_cli_exports(args, result, datasets, mask_factory, cell_factory, args.model)
@@ -247,6 +326,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     datasets = load_diffusion_datasets(
         inputs,
         bleach_roi=mask_factory,
+        cell_roi=cell_factory,
         adjacent_roi=adjacent_factory,
     )
 
@@ -259,6 +339,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         post_bleach_frame=inputs.post_bleach_frame,
     )
     config.fit_mode = args.fit_mode
+    config.optimizer_mode = args.optimizer_mode
 
     result = fit_diffusion_model(datasets, inputs, config)
     _write_cli_exports(args, result, datasets, mask_factory, cell_factory, args.model)

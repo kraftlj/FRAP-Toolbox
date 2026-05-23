@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Compatibility entry point for the modern FRAP-Toolbox app.
 
@@ -8,4 +6,8 @@ to install and run across lab workstations than a native desktop bundle while
 the Python port is still evolving.
 """
 
+from __future__ import annotations
+
 from ..app_launcher import main
+
+__all__ = ["main"]

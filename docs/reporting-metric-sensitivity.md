@@ -76,7 +76,8 @@ grid and SciPy global optimizers gave the same minima.
 This means the optimizer landscape is not multi-modal in a way that hides a
 guide-valued global minimum. The guide values lie on the same broad basin, but
 not at the bottom of the weighted least-squares objective encoded in
-`DiffusionModel_2.m`. For `Venus_Cytoplasm_3.lsm`, the guide point has about
+`legacy/matlab/DiffusionModel_2.m`. For `Venus_Cytoplasm_3.lsm`, the guide
+point has about
 `1.55x` the sum-squared residual of the global D/MF minimum. The remaining
 historical parity problem is therefore specifically the MATLAB-era solver
 termination path, not the mathematical objective's global minimum.

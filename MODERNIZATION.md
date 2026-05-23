@@ -2,12 +2,14 @@
 
 ## Direction
 
-The Python port should make the analysis engine the durable center of the project:
+The Python implementation is the durable center of the project:
 
 1. Core library: image loading, ROI masks, normalization, fitting, exports.
 2. CLI: reproducible batch analysis and regression checks.
 3. Local browser app: low-friction deployment for lab workstations.
 4. MATLAB parity tests: keep historical behavior explainable while the Python implementation improves.
+5. Legacy MATLAB source: archived under `legacy/matlab/` for reproduction and
+   parity work, not as the main implementation.
 
 ## Technology choices
 
@@ -29,3 +31,5 @@ The Python port should make the analysis engine the durable center of the projec
 - `test-data/` is intentionally ignored for now because the microscopy fixtures are large.
 - `scratch/` is intentionally ignored and can hold one-off parity scripts, debug probes, and generated fit artifacts.
 - The current MATLAB-vs-Python diffusion fitting investigation is preserved in `docs/matlab-to-python-port-testing.md`.
+- The cloud web pilot is preserved outside mainline on the `codex/cloud-web-pilot`
+  branch.

@@ -1,9 +1,11 @@
 # Developer Setup, CI, and Packaging
 
-This project is in transition from the original MATLAB application to a modern
-Python package. Keep public CI lightweight and reproducible. The repository
-tracks one raw microscopy sample under `sample-data/`; the full legacy fixture
-archive remains external and is documented in `docs/data-availability.md`.
+This project centers on the modern Python package, CLI, and local Streamlit app.
+The original MATLAB application is archived under `legacy/matlab/` for parity
+and historical reproduction. Keep public CI lightweight and reproducible. The
+repository tracks one raw microscopy sample under `sample-data/`; the full
+legacy fixture archive remains external and is documented in
+`docs/data-availability.md`.
 
 ## Supported Python Versions
 
@@ -24,6 +26,12 @@ Unit tests:
 ```bash
 python -m pip install -e ".[test]"
 python -m pytest -q
+```
+
+Contributor tooling:
+
+```bash
+python -m pip install -e ".[dev]"
 ```
 
 Local Streamlit app:
@@ -65,7 +73,10 @@ clean checkout where `test-data/` is absent. This is intentional:
 The public gate is:
 
 ```bash
-python -m pip install -e ".[test]"
+git diff --check
+python -m pip install -e ".[dev]"
+python -m ruff check .
+python scripts/check_markdown_links.py
 python -m pytest -q
 python -m pip check
 ```
@@ -76,7 +87,14 @@ If you have restored the ignored `test-data/` archive beside the repository
 root, pytest will automatically run the guide-derived parity tests. Download the
 external archive from the Zenodo record
 [FRAP-Toolbox Legacy User Guide Test Data](https://doi.org/10.5281/zenodo.20344310),
-then verify it against `docs/data-availability.md`. It should contain at least:
+then verify it against `docs/data-availability.md`. You can restore and verify
+the archive with:
+
+```bash
+python scripts/restore_test_data.py
+```
+
+It should contain at least:
 
 - `test-data/Userguide.pdf`
 - `test-data/Diffusion/*_Diffusion_Fit_Parameters.txt`
@@ -107,7 +125,8 @@ Known current caveats:
 If a remote collaborator has MATLAB installed, send them
 `docs/remote-matlab-parity-probe.md`. The tracked
 `scripts/matlab_parity_probe.m` script writes a self-contained evidence bundle
-under `scratch/matlab-parity-output/` without modifying source files.
+under `scratch/matlab-parity-output/` without modifying source files. The script
+adds `legacy/matlab/` to the MATLAB path automatically.
 
 ## Packaging Checks
 
@@ -115,7 +134,7 @@ Run these before publishing a release or opening a packaging-focused PR:
 
 ```bash
 python -m pip check
-python -m pip install build twine
+python -m pip install -e ".[dev]"
 rm -rf dist
 python -m build --sdist --wheel
 python -m twine check dist/*
@@ -123,3 +142,15 @@ python -m twine check dist/*
 
 Do not commit `dist/`, `.venv/`, `test-data/`, generated exports, or scratch
 debugging files.
+
+## Release Checklist
+
+Before tagging a release:
+
+1. Update `CHANGELOG.md` and confirm `CITATION.cff` still matches the release.
+2. Run the public gate, package checks, and wheel install smoke test.
+3. Confirm `run-metadata.json` remains backward compatible apart from additive
+   fields such as `analysis_bundle_version`.
+4. Confirm the known parity caveats are current in `docs/modernization-workstreams.md`.
+5. Publish artifacts through GitHub releases or package infrastructure, not by
+   committing generated archives.

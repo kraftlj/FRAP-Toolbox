@@ -14,10 +14,6 @@ build/
 dist/
 *.whl
 tmp/
-.frap-cloud-storage/
-web/node_modules/
-web/dist/
-
 # Large local microscopy fixtures and exploratory porting work live outside the
 # public-facing source tree.
 test-data/

@@ -59,7 +59,8 @@ All counts are compared against the inferred 252-pixel MATLAB guide mask.
 
 ## Remote MATLAB R2026a Probe
 
-A remote MATLAB R2026a probe recreated `ROIinitialization_Diffusion.m` directly
+A remote MATLAB R2026a probe recreated
+`legacy/matlab/ROIinitialization_Diffusion.m` directly
 with `x0=256`, `y0=23`, `R0=9`, `t = 0:pi/20:2*pi`, and
 `poly2mask(xi, yi, 512, 512)`. That modern MATLAB mask had 251 pixels, not the
 252-pixel mask inferred from the original exported Raw FRAP vector. It differed

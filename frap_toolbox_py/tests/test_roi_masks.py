@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from frap_toolbox_py import cli
-from frap_toolbox_py.roi import load_roi_mask, load_roi_masks, save_roi_mask, save_roi_masks
+from frap_toolbox_py.roi import CircularROI, load_roi_mask, load_roi_masks, save_roi_mask, save_roi_masks
 from frap_toolbox_py.types import FRAPDataset
 
 
@@ -44,6 +44,28 @@ def test_roi_mask_helpers_reject_non_bool_masks(tmp_path):
 
     with pytest.raises(ValueError, match="dtype bool"):
         save_roi_mask(tmp_path / "bad.npz", "bleach", mask)
+
+
+def test_circular_roi_rejects_invalid_geometry():
+    with pytest.raises(ValueError, match="radius"):
+        CircularROI(center_x=5.0, center_y=5.0, radius=0.0)
+
+    with pytest.raises(ValueError, match="finite"):
+        CircularROI(center_x=np.nan, center_y=5.0, radius=2.0)
+
+
+def test_circular_roi_rejects_empty_generated_masks():
+    roi = CircularROI(center_x=100.0, center_y=100.0, radius=2.0)
+
+    with pytest.raises(ValueError, match="does not overlap"):
+        roi.to_mask((4, 4))
+
+
+def test_roi_mask_helpers_reject_empty_masks(tmp_path):
+    mask = np.zeros((3, 3), dtype=bool)
+
+    with pytest.raises(ValueError, match="empty"):
+        save_roi_mask(tmp_path / "empty.npz", "bleach", mask)
 
 
 def test_roi_mask_helpers_reject_shape_mismatches(tmp_path):
@@ -130,5 +152,19 @@ def test_cli_rejects_mask_only_diffusion_workflows(tmp_path):
                 "diffusion",
                 "--bleach-mask",
                 str(mask_path),
+            ]
+        )
+
+
+def test_cli_rejects_whole_cell_normalization_without_cell_roi():
+    with pytest.raises(SystemExit, match="--normalize-by-cell requires"):
+        cli.main(
+            [
+                "fake.lsm",
+                "--roi",
+                "3",
+                "3",
+                "2",
+                "--normalize-by-cell",
             ]
         )

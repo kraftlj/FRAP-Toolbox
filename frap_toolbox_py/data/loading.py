@@ -46,11 +46,17 @@ def _make_mask(
     if isinstance(factory, np.ndarray):
         if factory.shape != shape:
             raise ValueError("Provided mask array does not match image shape.")
-        return factory.astype(bool)
+        mask = factory.astype(bool)
+        if not mask.any():
+            raise ValueError("Provided mask array is empty.")
+        return mask
     mask = factory(shape)
     if mask.shape != shape:
         raise ValueError("Mask factory returned mask with incorrect shape.")
-    return mask.astype(bool)
+    mask = mask.astype(bool)
+    if not mask.any():
+        raise ValueError("Mask factory returned an empty mask.")
+    return mask
 
 
 def _open_image(path: Path) -> Tuple[Any, str]:
@@ -88,6 +94,43 @@ def _open_image(path: Path) -> Tuple[Any, str]:
     )
 
 
+def preview_stack_shape(path: Path | str) -> tuple[int, int, int]:
+    """Return the preview stack shape as ``(T, Y, X)`` for app workflows."""
+
+    image, _ = _open_image(Path(path))
+    t_size = _dimension_size(image, "T") or 1
+    y_size = _dimension_size(image, "Y")
+    x_size = _dimension_size(image, "X")
+    if y_size is not None and x_size is not None:
+        return (t_size, y_size, x_size)
+
+    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0))
+    if stack.ndim != 3:
+        raise ValueError("Expected stack with dimensions (T, Y, X).")
+    return tuple(int(value) for value in stack.shape)  # type: ignore[return-value]
+
+
+def preview_frame(path: Path | str, frame_index: int) -> np.ndarray:
+    """Return one 2-D frame for app preview workflows."""
+
+    image, _ = _open_image(Path(path))
+    frame_count = _image_time_length(image, None)
+    clipped = min(max(int(frame_index), 0), frame_count - 1)
+
+    try:
+        frame = np.asarray(image.get_image_data("YX", T=clipped, C=0, Z=0))
+        if frame.ndim == 2:
+            return frame
+    except Exception as exc:
+        LOGGER.debug("Single-frame preview read failed for %s: %s", path, exc)
+
+    stack = np.asarray(image.get_image_data("TYX", C=0, Z=0))
+    if stack.ndim != 3:
+        raise ValueError("Expected stack with dimensions (T, Y, X).")
+    clipped = min(max(int(frame_index), 0), stack.shape[0] - 1)
+    return stack[clipped]
+
+
 def _seconds(value: Any, unit: Any = None) -> float:
     if hasattr(value, "total_seconds"):
         return float(value.total_seconds())
@@ -115,7 +158,21 @@ def _seconds(value: Any, unit: Any = None) -> float:
 def _image_time_length(image: Any, frame_count: Optional[int]) -> int:
     if frame_count is not None:
         return frame_count
-    return image.dims.T or 1
+    return _dimension_size(image, "T") or 1
+
+
+def _dimension_size(image: Any, axis: str) -> Optional[int]:
+    try:
+        dims = image.dims
+        value = getattr(dims, axis)
+    except Exception:
+        return None
+
+    try:
+        size = int(value)
+    except (TypeError, ValueError):
+        return None
+    return size if size > 0 else None
 
 
 def _extract_time_vector(image: Any, frame_count: Optional[int] = None) -> Tuple[np.ndarray, str]:

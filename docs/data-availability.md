@@ -49,6 +49,15 @@ test-data/
 The `test-data/` directory remains ignored by git. Tests that require it must
 skip when the directory is absent.
 
+The helper below performs the download, SHA-256 verification, and unpack step:
+
+```bash
+python scripts/restore_test_data.py
+```
+
+Use `--archive /path/to/frap-toolbox-legacy-user-guide-test-data.zip` to verify
+and unpack an archive that was downloaded separately.
+
 ## Full Archive Manifest
 
 The table below records the expected local `test-data/` contents from the

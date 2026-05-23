@@ -39,8 +39,8 @@ The repository now contains two user paths:
 
 - A modern Python package with a Streamlit app, command-line interface, BioIO
   image loading, export bundles, ROI-mask support, and parity tests.
-- The original MATLAB source and legacy standalone-application instructions,
-  preserved for reproducibility and historical comparison.
+- The original MATLAB source archived under `legacy/matlab/`, preserved for
+  reproducibility and historical comparison.
 
 The original 2014 PDF was written for the MATLAB application. This Markdown
 guide keeps those details but presents the Python workflow first for new
@@ -70,8 +70,7 @@ TN 37221, [Anne.kenworthy@vanderbilt.edu](mailto:Anne.kenworthy@vanderbilt.edu).
 | --- | --- | --- |
 | Modern local app | You want an interactive browser UI for local datasets, ROI selection, fitting, and exports. | `frap-toolbox-app` |
 | Modern CLI | You want repeatable scripted analysis, batch processing, or CI-friendly validation. | `frap-toolbox` |
-| Cloud web pilot | You are working on the browser-plus-cloud deployment path for large uploads and remote workers. | [docs/cloud-first-web-app.md](../cloud-first-web-app.md) |
-| Legacy MATLAB app | You need to reproduce the original 2014 workflow or compare against MATLAB-era behavior. | `Main_GUI.m` |
+| Legacy MATLAB app | You need to reproduce the original 2014 workflow or compare against MATLAB-era behavior. | `legacy/matlab/Main_GUI.m` |
 
 For new work, start with the modern Python app or CLI. Use the legacy MATLAB
 workflow when reproducing the original guide, investigating parity differences,
@@ -153,7 +152,10 @@ Useful CLI options:
 
 - `--model`: choose `diffusion`, `reaction1`, or `reaction2`.
 - `--fit-mode`: choose `global`, `individual`, `average_curve`,
-  `simplified_kang`, or `simplified_kang_global`.
+  `simplified_kang`, or `simplified_kang_global`. Defaults are `global` for
+  diffusion, `individual` for Reaction 1, and `average_curve` for Reaction 2.
+- `--optimizer-mode`: defaults to `modern`; use `legacy_matlab` only for
+  historical parity investigations.
 - `--normalize-by-cell`: normalize by a whole-cell ROI or mask.
 - `--bleach-mask` and `--cell-mask`: load saved ROI masks, usually `.npz`.
 - `--output-dir`: write an export bundle with parameters, FRAP series, optional
@@ -223,6 +225,8 @@ git. Download the published Zenodo archive
 and unpack it at the repository root to restore `test-data/`. Verify the
 download against the manifest and checksums in
 [docs/data-availability.md](../data-availability.md).
+For a scripted restore, run `python scripts/restore_test_data.py` from the
+repository root.
 
 ## ROI Guidance
 
@@ -254,7 +258,7 @@ canonical `.npz` mask container is documented in
 
 ## Results And Exports
 
-The modern app and CLI can write local export bundles containing:
+The modern app and CLI can write analysis export bundles containing:
 
 - `result-parameters.csv`
 - `frap-series.csv`
@@ -303,10 +307,18 @@ The original guide referenced MATLAB 2013 system requirements from MathWorks:
 
 ### Running The MATLAB Source
 
-In MATLAB, navigate to the FRAP-Toolbox directory containing the source files.
-Open and run `Main_GUI.m`.
+In MATLAB, navigate to `legacy/matlab/` and run the archived entry point.
 
-The current repository entry point is `Main_GUI.m`.
+From the repository root, you can also add the archived source directory to the
+MATLAB path:
+
+```matlab
+addpath(fullfile(pwd, 'legacy', 'matlab'));
+Main_GUI;
+```
+
+The current repository entry point for the archived MATLAB application is
+`legacy/matlab/Main_GUI.m`.
 
 ### Legacy Standalone Application On Windows
 

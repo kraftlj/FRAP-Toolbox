@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -30,7 +32,16 @@ jobs:
       - name: Install package
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[test]"
+          python -m pip install -e ".[dev]"
+
+      - name: Check tracked whitespace
+        run: git diff-tree --check --root -r HEAD
+
+      - name: Run Ruff
+        run: python -m ruff check .
+
+      - name: Check Markdown links
+        run: python scripts/check_markdown_links.py
 
       - name: Confirm clean checkout fixture policy
         run: test ! -e test-data
@@ -58,6 +69,42 @@ jobs:
       - name: Build distributions
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build twine
+          python -m pip install ".[dev]"
           python -m build --sdist --wheel
           python -m twine check dist/*
+
+      - name: Check wheel contents
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          wheel = next(Path("dist").glob("*.whl"))
+          with zipfile.ZipFile(wheel) as archive:
+              disallowed_prefixes = (
+                  "frap_toolbox_py/tests/",
+                  "docs/",
+                  "legacy/matlab/",
+                  "sample-data/",
+                  "web/",
+              )
+              tests = [
+                  name
+                  for name in archive.namelist()
+                  if name.startswith(disallowed_prefixes)
+              ]
+          if tests:
+              raise SystemExit(f"Wheel unexpectedly includes non-package artifacts: {tests[:5]}")
+          PY
+
+      - name: Install wheel and smoke-test entry points
+        run: |
+          WHEEL=$(ls dist/*.whl)
+          python -m pip install "${WHEEL}[app]"
+          frap-toolbox --help
+          python - <<'PY'
+          import frap_toolbox_py.app
+          import frap_toolbox_py.app_launcher
+          import streamlit
+          import streamlit_image_coordinates
+          PY
